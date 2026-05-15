@@ -13,6 +13,7 @@
 
 import { searchByTimeboxAction } from "@/app/(app)/discover/timebox/actions";
 import { TitlePreviewCard, type TitlePreviewData } from "@/components/title/TitlePreviewCard";
+import { capture } from "@/lib/analytics/events";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 const PRESETS = [90, 120, 150] as const;
@@ -34,6 +35,7 @@ export function TimeBox() {
       const key = String(minutes);
       if (key === lastQuery.current) return;
       lastQuery.current = key;
+      capture("timebox_search", { minutes });
       startTransition(async () => {
         const next = await searchByTimeboxAction({ maxMinutes: minutes, limit: 24 });
         if (lastQuery.current === key) setResults(next);

@@ -11,6 +11,7 @@
  */
 
 import { skipOnboardingAction, submitOnboardingAction } from "@/app/(app)/onboarding/actions";
+import { capture } from "@/lib/analytics/events";
 import { MIN_RATINGS_FOR_CENTROID } from "@/lib/onboarding/seed-films";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
@@ -53,6 +54,7 @@ export function OnboardingStack({ cards }: Props) {
 
   const rate = (stars: StarValue) => {
     if (!current) return;
+    capture("rated_film", { tmdbId: current.tmdbId, stars });
     setRated((prev) => {
       const next = prev.filter((r) => r.tmdbId !== current.tmdbId);
       next.push({ tmdbId: current.tmdbId, stars });
@@ -167,9 +169,7 @@ export function OnboardingStack({ cards }: Props) {
             onClick={finish}
             disabled={!canSubmit || pending}
             className={`px-5 py-2.5 rounded-full bg-[var(--color-accent-strong)] hover:bg-[var(--color-accent)] text-[#02161F] text-sm font-medium tracking-tight transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-              canSubmit && !pending
-                ? "shadow-[0_10px_30px_-12px_oklch(0.76_0.18_195_/_0.55)]"
-                : ""
+              canSubmit && !pending ? "shadow-[0_10px_30px_-12px_oklch(0.76_0.18_195_/_0.55)]" : ""
             }`}
           >
             {pending
@@ -253,9 +253,9 @@ function SkipOnboardingDialog({
           Skip the taste seed?
         </h2>
         <p className="mt-3 text-sm text-[var(--color-ink-1)] leading-relaxed">
-          Rating ten films is the fastest way for Lumen to learn what you respond to.
-          You can skip — but recommendations will be generic until your taste accrues
-          from ratings and journal entries over time.
+          Rating ten films is the fastest way for Lumen to learn what you respond to. You can skip —
+          but recommendations will be generic until your taste accrues from ratings and journal
+          entries over time.
         </p>
 
         <div className="mt-6 flex flex-col gap-2">
@@ -265,9 +265,7 @@ function SkipOnboardingDialog({
             disabled={pending}
             className="w-full text-left px-4 py-3 rounded-2xl glass-thin glass-specular ring-1 ring-[var(--color-accent)]/40 hover:ring-[var(--color-accent)]/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <div className="text-sm font-medium text-[var(--color-ink-0)]">
-              Remind me later
-            </div>
+            <div className="text-sm font-medium text-[var(--color-ink-0)]">Remind me later</div>
             <div className="text-xs text-[var(--color-ink-2)] mt-0.5">
               Take me to Home for now. I&apos;ll be prompted on next visit.
             </div>
@@ -278,9 +276,7 @@ function SkipOnboardingDialog({
             disabled={pending}
             className="w-full text-left px-4 py-3 rounded-2xl glass-thin ring-1 ring-white/10 hover:ring-white/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <div className="text-sm font-medium text-[var(--color-ink-0)]">
-              Skip for now
-            </div>
+            <div className="text-sm font-medium text-[var(--color-ink-0)]">Skip for now</div>
             <div className="text-xs text-[var(--color-ink-2)] mt-0.5">
               Done with this. Lumen will learn my taste slowly as I use the app.
             </div>

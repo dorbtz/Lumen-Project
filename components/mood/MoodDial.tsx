@@ -19,10 +19,8 @@
  */
 
 import { searchByMoodAction } from "@/app/(app)/discover/mood/actions";
-import {
-  TitlePreviewCard,
-  type TitlePreviewData,
-} from "@/components/title/TitlePreviewCard";
+import { TitlePreviewCard, type TitlePreviewData } from "@/components/title/TitlePreviewCard";
+import { capture } from "@/lib/analytics/events";
 import { motion, useMotionValue, useReducedMotion } from "framer-motion";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -88,6 +86,7 @@ export function MoodDial() {
       const key = `${v.toFixed(2)}|${a.toFixed(2)}`;
       if (key === lastQuery.current) return;
       lastQuery.current = key;
+      capture("mood_search", { valence: Number(v.toFixed(2)), arousal: Number(a.toFixed(2)) });
       startTransition(async () => {
         const next = await searchByMoodAction({ valence: v, arousal: a, limit: 24 });
         if (lastQuery.current === key) setResults(next);
@@ -157,10 +156,7 @@ export function MoodDial() {
       <div ref={wrapperRef} className="w-full flex justify-center">
         {/* Dial wrapper — py-10 reserves room for the Intense/Calm labels.
             Width uses CSS clamp so it never overflows on narrow screens. */}
-        <div
-          className="relative py-10"
-          style={{ width: dialPx }}
-        >
+        <div className="relative py-10" style={{ width: dialPx }}>
           {/* Vertical axis labels — above/below the dial, always centred */}
           <Label
             text="Intense"
@@ -172,10 +168,7 @@ export function MoodDial() {
           />
 
           {/* Inner positioning context — dial-sized square */}
-          <div
-            className="relative mx-auto"
-            style={{ width: dialPx, height: dialPx }}
-          >
+          <div className="relative mx-auto" style={{ width: dialPx, height: dialPx }}>
             {/* Dial plane with corner tints */}
             <div
               ref={dialRef}
@@ -253,12 +246,7 @@ export function MoodDial() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {results.map((r) => (
-              <TitlePreviewCard
-                key={r.tmdbId}
-                data={r}
-                posterWidth={170}
-                className="w-full"
-              />
+              <TitlePreviewCard key={r.tmdbId} data={r} posterWidth={170} className="w-full" />
             ))}
           </div>
         )}

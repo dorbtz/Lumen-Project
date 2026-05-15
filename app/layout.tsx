@@ -8,6 +8,7 @@
 import "./globals.css";
 
 import { readAccessibilityPrefs } from "@/app/(app)/settings/actions";
+import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 import { LiquidDisplacementFilter } from "@/components/glass";
 import { PwaProvider } from "@/components/pwa/PwaProvider";
 import { ClerkProvider } from "@clerk/nextjs";
@@ -75,7 +76,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       >
         <body className="min-h-dvh antialiased bg-[var(--color-surface-0)] text-[var(--color-ink-0)]">
           <LiquidDisplacementFilter />
-          <PwaProvider>{children}</PwaProvider>
+          <PostHogProvider>
+            <PwaProvider>{children}</PwaProvider>
+          </PostHogProvider>
           <Analytics />
           <SpeedInsights />
         </body>

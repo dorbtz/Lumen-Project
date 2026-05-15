@@ -9,6 +9,7 @@
  * cache miss and we don't want it to block the rest of the page.
  */
 
+import { ViewedRecapBeacon } from "@/components/analytics/ViewedRecapBeacon";
 import { AppChrome } from "@/components/chrome/AppChrome";
 import { GlassCard } from "@/components/glass";
 import { ShareButton } from "@/components/recap/ShareButton";
@@ -153,6 +154,7 @@ function RecapBody({
 }) {
   return (
     <article className="mx-auto max-w-3xl px-6 pt-32 pb-12">
+      <ViewedRecapBeacon entryCount={recap.entryCount} />
       <header className="flex items-center gap-4">
         <span
           aria-hidden

@@ -14,6 +14,7 @@
 
 import { saveJournalEntryAction } from "@/app/(app)/journal/actions";
 import { GlassCard } from "@/components/glass";
+import { capture } from "@/lib/analytics/events";
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { type FormEvent, useState, useTransition } from "react";
@@ -64,6 +65,7 @@ export function JournalComposer({ titleUuid }: JournalComposerProps) {
         setError(result.error ?? "Could not save the entry");
         return;
       }
+      capture("logged_journal", { hasReflection: trimmed.length > 0 });
       setSavedQuestion(result.generatedQuestion ?? null);
       setReflection("");
     });
