@@ -19,6 +19,7 @@ import { WhyCard, WhyCardSkeleton } from "@/components/title/WhyCard";
 import { WatchlistButton } from "@/components/watchlist/WatchlistButton";
 import { getActiveProfileId } from "@/lib/auth/active-profile";
 import { getSimilarTitlesByEmbedding, getSimilarTitlesByGenre } from "@/lib/db/queries";
+import { getCc0ByTmdbId } from "@/lib/mux/client";
 import type { Title } from "@/lib/db/schema";
 import { type TmdbCastMember, type TmdbCrewMember, tmdb } from "@/lib/tmdb/client";
 import { getOrSyncTitle } from "@/lib/tmdb/sync";
@@ -76,6 +77,8 @@ async function TitleDetail({ params }: PageProps) {
   const t: TitleViewModel = projectTitle(row, fresh);
 
   const trailer = tmdb.pickTrailer(fresh?.videos?.results);
+  const cc0 = await getCc0ByTmdbId(tmdbId).catch(() => null);
+  const cc0Available = Boolean(cc0);
   const cast = (fresh?.credits?.cast ?? []).slice(0, 12);
   const crew = extractHeadlineCrew(fresh?.credits?.crew ?? []);
 
@@ -204,8 +207,31 @@ async function TitleDetail({ params }: PageProps) {
        * active profile (we'd have no profile_id to attach the entry to). */}
       {row?.id && activeProfileId && <JournalComposer titleUuid={row.id} />}
 
-      {/* Trailer */}
-      {trailer && (
+      {/* Watch — CC0 full film (themed Mux player) or trailer fallback. The
+       * /watch route resolves which to show; this is the entry CTA. */}
+      {(cc0Available || trailer) && (
+        <section className="mx-auto max-w-5xl px-6 md:px-10 py-6">
+          <Link
+            href={`/title/${tmdbId}/watch`}
+            className="inline-flex items-center gap-2 min-h-[44px] px-6 rounded-full text-sm bg-[var(--color-accent)] text-black ring-1 ring-[var(--color-accent)] hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-accent)]/40"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+              role="img"
+              className="w-4 h-4"
+            >
+              <title>Play</title>
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            {cc0Available ? "Watch full film" : "Watch trailer"}
+          </Link>
+        </section>
+      )}
+
+      {/* Trailer inline preview (kept for non-CC0 titles) */}
+      {trailer && !cc0Available && (
         <section className="mx-auto max-w-5xl px-6 md:px-10 py-8">
           <h2 className="text-xs tracking-[0.22em] uppercase text-[var(--color-accent)] mb-3">
             Trailer
