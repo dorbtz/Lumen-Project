@@ -303,14 +303,29 @@ export const watchlistItems = pgTable(
 );
 
 /** Nightly cron-built Recap story (SPEC §3.1 #4) */
-export const recapStates = pgTable("recap_states", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  profileId: uuid("profile_id")
-    .notNull()
-    .references(() => profiles.id, { onDelete: "cascade" }),
-  generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow().notNull(),
-  storyJson: jsonb("story_json").notNull(),
-});
+export const recapStates = pgTable(
+  "recap_states",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow().notNull(),
+    storyJson: jsonb("story_json").notNull(),
+    /**
+     * Unguessable public share token (nanoid, app-generated — see
+     * SPEC_COMPLETION §1 A2). Nullable so historic rows + non-shared
+     * recaps stay valid; rotated whenever a recap is rebuilt to revoke
+     * old links. Partial-unique index allows many NULLs.
+     */
+    shareToken: text("share_token"),
+  },
+  (t) => ({
+    shareTokenUnique: uniqueIndex("recap_states_share_token_unique")
+      .on(t.shareToken)
+      .where(sql`${t.shareToken} IS NOT NULL`),
+  }),
+);
 
 // ---------- inferred types ----------
 
