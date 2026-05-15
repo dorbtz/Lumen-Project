@@ -67,3 +67,8 @@ movies-project.zip
 
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
+
+# Serwist-generated service worker (built by `serwist build`)
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js

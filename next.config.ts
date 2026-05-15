@@ -19,8 +19,11 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.clerk.dev" },
     ],
   },
-  // SPEC §5: typography expects SF Pro / Inter Display — make sure system fonts pass through cleanly
-  // SPEC §11: PWA — service worker registered in app/layout
+  // SPEC §5: typography expects SF Pro / Inter Display — system fonts pass through cleanly.
+  // SPEC §11 / SPEC_COMPLETION §2 B1: PWA service worker is built by Serwist
+  // *configurator mode* (serwist.config.mjs + `serwist build` after
+  // `next build`) — Turbopack-safe; no webpack plugin here. Registered
+  // client-side via <SerwistProvider> in app/layout.tsx.
   serverExternalPackages: ["@neondatabase/serverless"],
 };
 

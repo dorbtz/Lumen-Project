@@ -9,6 +9,7 @@ import "./globals.css";
 
 import { readAccessibilityPrefs } from "@/app/(app)/settings/actions";
 import { LiquidDisplacementFilter } from "@/components/glass";
+import { PwaProvider } from "@/components/pwa/PwaProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { Analytics } from "@vercel/analytics/react";
@@ -74,7 +75,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       >
         <body className="min-h-dvh antialiased bg-[var(--color-surface-0)] text-[var(--color-ink-0)]">
           <LiquidDisplacementFilter />
-          {children}
+          <PwaProvider>{children}</PwaProvider>
           <Analytics />
           <SpeedInsights />
         </body>

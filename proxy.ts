@@ -23,6 +23,9 @@ const isPublicRoute = createRouteMatcher([
   // Public read-only recap share (SPEC_COMPLETION §1 A2). No auth, no profile
   // data beyond the recap story; token is unguessable + rotated on rebuild.
   "/recap/share/(.*)",
+  // PWA offline fallback (SPEC_COMPLETION §2 B1) — must render with no auth
+  // and no network, so it can't sit behind the Clerk redirect.
+  "/offline",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
