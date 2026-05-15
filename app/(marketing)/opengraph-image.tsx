@@ -22,8 +22,10 @@ export default function OgImage() {
         flexDirection: "column",
         justifyContent: "center",
         padding: "0 96px",
+        // next/og (Satori) only supports hex / rgb / rgba / hsl — NOT oklch.
+        // These are hex/rgba equivalents of the site's sapphire+aurora wash.
         background:
-          "radial-gradient(60% 80% at 70% 12%, oklch(0.66 0.17 200 / 0.35), transparent 60%), radial-gradient(50% 70% at 18% 88%, oklch(0.62 0.15 160 / 0.30), transparent 60%), oklch(0.10 0.03 245)",
+          "radial-gradient(60% 80% at 70% 12%, rgba(61,211,232,0.30), transparent 60%), radial-gradient(50% 70% at 18% 88%, rgba(52,211,153,0.24), transparent 60%), #0A1428",
         color: "#FAFAFA",
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
@@ -33,7 +35,7 @@ export default function OgImage() {
           fontSize: 24,
           letterSpacing: 8,
           textTransform: "uppercase",
-          color: "oklch(0.84 0.16 200)",
+          color: "#3DD3E8",
           marginBottom: 28,
         }}
       >
@@ -51,7 +53,7 @@ export default function OgImage() {
         }}
       >
         <span>Discover by mood.</span>
-        <span style={{ color: "oklch(0.84 0.16 200)" }}>Remember every watch.</span>
+        <span style={{ color: "#3DD3E8" }}>Remember every watch.</span>
       </div>
       <div
         style={{
