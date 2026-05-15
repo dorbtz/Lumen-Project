@@ -151,6 +151,60 @@ export async function getTitlesByTasteCentroid(
   return rows.rows as unknown as Title[];
 }
 
+/**
+ * Time-Box Discovery (SPEC_COMPLETION §1 A1) — titles whose runtime fits a
+ * budget, ranked by taste-centroid cosine, tie-broken by popularity.
+ *
+ * Pure pgvector + SQL — ZERO new LLM call sites (reuses the same embedding
+ * path the Mood Dial / taste rows already use). Grace of +8 min per spec.
+ * If the centroid is absent we degrade to popularity within the runtime cap.
+ */
+export async function getTitlesByTimebox(
+  maxMinutes: number,
+  centroid: number[] | null,
+  limit = 24,
+): Promise<Title[]> {
+  const cap = Math.round(maxMinutes) + 8; // grace
+  if (!centroid || centroid.length !== 384) {
+    const rows = await db.execute(sql`
+      SELECT id, tmdb_id AS "tmdbId", type, title, original_title AS "originalTitle",
+             release_year AS "releaseYear", runtime_min AS "runtimeMin", overview, tagline,
+             poster_path AS "posterPath", backdrop_path AS "backdropPath",
+             vibrant_palette AS "vibrantPalette", imdb_id AS "imdbId",
+             popularity, vote_average AS "voteAverage", vote_count AS "voteCount",
+             keywords, genres,
+             NULL::vector AS "moodVector", NULL::vector AS "embedding",
+             created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM titles
+      WHERE poster_path IS NOT NULL
+        AND runtime_min IS NOT NULL
+        AND runtime_min <= ${cap}
+      ORDER BY popularity DESC
+      LIMIT ${limit}
+    `);
+    return rows.rows as unknown as Title[];
+  }
+  const centroidLiteral = `[${centroid.join(",")}]`;
+  const rows = await db.execute(sql`
+    SELECT id, tmdb_id AS "tmdbId", type, title, original_title AS "originalTitle",
+           release_year AS "releaseYear", runtime_min AS "runtimeMin", overview, tagline,
+           poster_path AS "posterPath", backdrop_path AS "backdropPath",
+           vibrant_palette AS "vibrantPalette", imdb_id AS "imdbId",
+           popularity, vote_average AS "voteAverage", vote_count AS "voteCount",
+           keywords, genres,
+           NULL::vector AS "moodVector", NULL::vector AS "embedding",
+           created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM titles
+    WHERE poster_path IS NOT NULL
+      AND runtime_min IS NOT NULL
+      AND runtime_min <= ${cap}
+      AND embedding IS NOT NULL
+    ORDER BY embedding <=> ${centroidLiteral}::vector, popularity DESC
+    LIMIT ${limit}
+  `);
+  return rows.rows as unknown as Title[];
+}
+
 /** Similar titles to a given title via pgvector. Falls back to popularity if no embedding. */
 export async function getSimilarTitlesByEmbedding(titleId: string, limit = 12): Promise<Title[]> {
   const rows = await db.execute(sql`

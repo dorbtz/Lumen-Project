@@ -11,6 +11,7 @@
  */
 
 import { AppChrome } from "@/components/chrome/AppChrome";
+import { MoodDial } from "@/components/mood/MoodDial";
 import { HeroBillboard, type HeroItem } from "@/components/title/HeroBillboard";
 import { TitlePreviewCard, type TitlePreviewData } from "@/components/title/TitlePreviewCard";
 import { TitleRow } from "@/components/title/TitleRow";
@@ -106,6 +107,22 @@ async function AppHome() {
           </div>
         </section>
       )}
+
+      {/* A6 — Home Mood Dial (SPEC_COMPLETION §1 A6). Pure composition of the
+          existing client component; no new logic. */}
+      <section className="px-6 md:px-10 py-10">
+        <div className="flex items-baseline justify-between mb-2">
+          <h2 className="text-lg md:text-xl tracking-tight font-[var(--font-display)]">
+            What do you want to feel tonight?
+          </h2>
+          <p className="text-[11px] uppercase tracking-widest text-[var(--color-ink-3)]">
+            Drag the orb
+          </p>
+        </div>
+        <div className="pt-6">
+          <MoodDial />
+        </div>
+      </section>
 
       <TitleRow label="Trending this week" hint="From TMDB" items={trendingTmdb} />
 

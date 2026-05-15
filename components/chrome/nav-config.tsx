@@ -16,7 +16,7 @@ export interface NavLink {
 
 export const NAV_LINKS: NavLink[] = [
   { href: "/home", label: "Home", match: "/home", icon: HomeIcon },
-  { href: "/discover/mood", label: "Discover", match: "/discover", icon: CompassIcon },
+  { href: "/discover", label: "Discover", match: "/discover", icon: CompassIcon },
   { href: "/journal", label: "Journal", match: "/journal", icon: BookIcon },
   { href: "/watchlist", label: "Watchlist", match: "/watchlist", icon: BookmarkIcon },
   { href: "/weather", label: "Weather", match: "/weather", icon: CloudSunIcon },

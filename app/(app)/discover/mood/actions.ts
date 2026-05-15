@@ -8,9 +8,9 @@
  * Output: top-N titles ranked by L2 distance to the (v, a, 0…) query vector.
  */
 
+import type { TitlePreviewData } from "@/components/title/TitlePreviewCard";
 import { getTitlesByMood } from "@/lib/db/queries";
 import type { Title } from "@/lib/db/schema";
-import type { TitlePreviewData } from "@/components/title/TitlePreviewCard";
 
 export interface MoodSearchInput {
   valence: number;
@@ -18,9 +18,7 @@ export interface MoodSearchInput {
   limit?: number;
 }
 
-export async function searchByMoodAction(
-  input: MoodSearchInput,
-): Promise<TitlePreviewData[]> {
+export async function searchByMoodAction(input: MoodSearchInput): Promise<TitlePreviewData[]> {
   const limit = Math.max(4, Math.min(48, input.limit ?? 24));
   const titles = await getTitlesByMood(input.valence, input.arousal, limit);
   return titles.map(toPreview);
