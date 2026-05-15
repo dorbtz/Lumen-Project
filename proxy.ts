@@ -19,8 +19,15 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
-    await auth.protect();
+  if (isPublicRoute(req)) return;
+  // Explicit redirect over `auth.protect()`: protect() returns a bare 404 for
+  // signed-out users when Clerk can't resolve a sign-in URL (happens with a
+  // development instance on a non-localhost domain). redirectToSignIn always
+  // produces a proper 307 to our self-hosted /sign-in and preserves the
+  // return-to URL.
+  const { userId, redirectToSignIn } = await auth();
+  if (!userId) {
+    return redirectToSignIn({ returnBackUrl: req.url });
   }
 });
 
