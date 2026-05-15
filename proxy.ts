@@ -16,6 +16,9 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks/(.*)",
+  // Public read-only recap share (SPEC_COMPLETION §1 A2). No auth, no profile
+  // data beyond the recap story; token is unguessable + rotated on rebuild.
+  "/recap/share/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

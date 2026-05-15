@@ -7,6 +7,7 @@
 
 import "./globals.css";
 
+import { readAccessibilityPrefs } from "@/app/(app)/settings/actions";
 import { LiquidDisplacementFilter } from "@/components/glass";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
@@ -35,7 +36,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const a11y = await readAccessibilityPrefs();
   return (
     <ClerkProvider
       appearance={{
@@ -64,7 +66,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         },
       }}
     >
-      <html lang="en" suppressHydrationWarning>
+      <html
+        lang="en"
+        suppressHydrationWarning
+        data-reduce-transparency={a11y.reduceTransparency ? "1" : "0"}
+        data-reduce-motion={a11y.reduceMotion ? "1" : "0"}
+      >
         <body className="min-h-dvh antialiased bg-[var(--color-surface-0)] text-[var(--color-ink-0)]">
           <LiquidDisplacementFilter />
           {children}

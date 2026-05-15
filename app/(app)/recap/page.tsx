@@ -11,10 +11,11 @@
 
 import { AppChrome } from "@/components/chrome/AppChrome";
 import { GlassCard } from "@/components/glass";
+import { ShareButton } from "@/components/recap/ShareButton";
 import { getActiveProfileId } from "@/lib/auth/active-profile";
-import { profileBelongsToCurrentAccount, getOrCreateAccount } from "@/lib/auth/profile-queries";
+import { getOrCreateAccount, profileBelongsToCurrentAccount } from "@/lib/auth/profile-queries";
 import { getProfileById } from "@/lib/db/queries";
-import { getOrGenerateRecap, type ResolvedRecap } from "@/lib/recap/service";
+import { type ResolvedRecap, getOrGenerateRecap } from "@/lib/recap/service";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -76,9 +77,7 @@ async function RecapSurface() {
 function EmptyNoEntries() {
   return (
     <section className="mx-auto max-w-2xl px-6 pt-32">
-      <p className="text-[11px] tracking-[0.28em] uppercase text-[var(--color-accent)]">
-        Recap
-      </p>
+      <p className="text-[11px] tracking-[0.28em] uppercase text-[var(--color-accent)]">Recap</p>
       <h1
         className="mt-3 text-3xl md:text-4xl font-[var(--font-display)] tracking-tight"
         style={{ letterSpacing: "-0.02em" }}
@@ -88,14 +87,11 @@ function EmptyNoEntries() {
       <div className="mt-8">
         <GlassCard>
           <p className="text-base text-[var(--color-ink-1)] leading-relaxed">
-            Lumen builds a personal recap from your journal entries. Log a few films
-            you&apos;ve seen — even a sentence each — and a story will be waiting here.
+            Lumen builds a personal recap from your journal entries. Log a few films you&apos;ve
+            seen — even a sentence each — and a story will be waiting here.
           </p>
           <div className="mt-5 flex gap-4">
-            <Link
-              href="/home"
-              className="text-sm text-[var(--color-accent)] hover:underline"
-            >
+            <Link href="/home" className="text-sm text-[var(--color-accent)] hover:underline">
               Find a film to watch →
             </Link>
             <Link
@@ -115,9 +111,7 @@ function EmptyGenerationFailed({ reason }: { reason: "quota" | "unknown" }) {
   const quota = reason === "quota";
   return (
     <section className="mx-auto max-w-2xl px-6 pt-32">
-      <p className="text-[11px] tracking-[0.28em] uppercase text-[var(--color-accent)]">
-        Recap
-      </p>
+      <p className="text-[11px] tracking-[0.28em] uppercase text-[var(--color-accent)]">Recap</p>
       <h1
         className="mt-3 text-3xl md:text-4xl font-[var(--font-display)] tracking-tight"
         style={{ letterSpacing: "-0.02em" }}
@@ -132,10 +126,7 @@ function EmptyGenerationFailed({ reason }: { reason: "quota" | "unknown" }) {
               : "Something went wrong building your recap. Your journal is fine — try again in a few minutes."}
           </p>
           <div className="mt-5 flex gap-4">
-            <Link
-              href="/journal"
-              className="text-sm text-[var(--color-accent)] hover:underline"
-            >
+            <Link href="/journal" className="text-sm text-[var(--color-accent)] hover:underline">
               Open journal →
             </Link>
             <Link
@@ -181,12 +172,15 @@ function RecapBody({
         </div>
       </header>
 
-      <h1
-        className="mt-8 text-3xl md:text-5xl font-[var(--font-display)] tracking-tight leading-[1.04]"
-        style={{ letterSpacing: "-0.025em" }}
-      >
-        {recap.headline}
-      </h1>
+      <div className="mt-8 flex flex-wrap items-start justify-between gap-4">
+        <h1
+          className="text-3xl md:text-5xl font-[var(--font-display)] tracking-tight leading-[1.04] flex-1 min-w-0"
+          style={{ letterSpacing: "-0.025em" }}
+        >
+          {recap.headline}
+        </h1>
+        <ShareButton />
+      </div>
 
       <section className="mt-8">
         <GlassCard className="relative overflow-hidden">
@@ -226,11 +220,7 @@ function RecapBody({
                   href={`/title/${m.tmdbId}`}
                   className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] rounded-2xl"
                 >
-                  <GlassCard
-                    weight="thin"
-                    interactive
-                    className="flex gap-4 items-start"
-                  >
+                  <GlassCard weight="thin" interactive className="flex gap-4 items-start">
                     <div className="shrink-0 w-16 aspect-[2/3] rounded-lg overflow-hidden bg-[var(--color-surface-2)] ring-1 ring-white/10">
                       {m.posterPath && (
                         <Image
@@ -260,7 +250,8 @@ function RecapBody({
       )}
 
       <p className="mt-10 text-[10px] uppercase tracking-widest text-[var(--color-ink-3)]">
-        Generated {formatRelative(recap.generatedAt)} · {recap.source === "cached" ? "cached" : "fresh"}
+        Generated {formatRelative(recap.generatedAt)} ·{" "}
+        {recap.source === "cached" ? "cached" : "fresh"}
       </p>
     </article>
   );

@@ -14,10 +14,11 @@
  * matched so it can shape the headline tone accordingly.
  */
 
-import { generateRecap, type RecapInputItem, type Recap } from "@/lib/ai/recap";
+import { type Recap, type RecapInputItem, generateRecap } from "@/lib/ai/recap";
 import { db } from "@/lib/db/client";
 import { parseVectorLiteral } from "@/lib/db/queries";
 import { recapStates } from "@/lib/db/schema";
+import { generateShareToken } from "@/lib/recap/share";
 import { desc, eq, sql } from "drizzle-orm";
 
 const TTL_MS = 24 * 60 * 60 * 1000;
@@ -125,7 +126,14 @@ export async function getOrGenerateRecap(profileId: string): Promise<RecapResult
     windowDays,
   };
 
-  await db.insert(recapStates).values({ profileId, storyJson });
+  // A fresh recap rotates the share token: a brand-new row gets a brand-new
+  // token, so any previously-shared public link (pointing at the prior row's
+  // token) is implicitly revoked (SPEC_COMPLETION §1 A2).
+  await db.insert(recapStates).values({
+    profileId,
+    storyJson,
+    shareToken: generateShareToken(),
+  });
 
   return {
     kind: "ok",
