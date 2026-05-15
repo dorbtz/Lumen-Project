@@ -51,13 +51,17 @@ export type RecapResult =
   | { kind: "no_entries" }
   | { kind: "generation_failed"; reason: "quota" | "unknown" };
 
-export async function getOrGenerateRecap(profileId: string): Promise<RecapResult> {
-  // Cache hit — recent and successful generations land here.
+export async function getOrGenerateRecap(
+  profileId: string,
+  opts: { force?: boolean } = {},
+): Promise<RecapResult> {
+  // Cache hit — recent and successful generations land here. The nightly
+  // cron passes { force: true } to always rebuild (SPEC_COMPLETION §1 A4).
   const latest = await db.query.recapStates.findFirst({
     where: eq(recapStates.profileId, profileId),
     orderBy: [desc(recapStates.generatedAt)],
   });
-  if (latest && Date.now() - latest.generatedAt.getTime() < TTL_MS) {
+  if (!opts.force && latest && Date.now() - latest.generatedAt.getTime() < TTL_MS) {
     return {
       kind: "ok",
       recap: {

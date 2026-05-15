@@ -16,6 +16,10 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks/(.*)",
+  // Vercel Cron endpoints (SPEC_COMPLETION §1 A4). These do their own
+  // Bearer-$CRON_SECRET auth in-handler; they must bypass the Clerk
+  // redirect or the cron's unauthenticated GET would 307 to /sign-in.
+  "/api/cron/(.*)",
   // Public read-only recap share (SPEC_COMPLETION §1 A2). No auth, no profile
   // data beyond the recap story; token is unguessable + rotated on rebuild.
   "/recap/share/(.*)",
