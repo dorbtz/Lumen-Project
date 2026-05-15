@@ -1,0 +1,271 @@
+@import "tailwindcss";
+
+/**
+ * Lumen — global theme.
+ * SPEC §5: Liquid Glass material weights, OKLAB color tokens, SF Pro / Inter Display typography.
+ *
+ * Material weights (SPEC §5.1):
+ *   - chrome    : top nav / persistent toolbars     | blur(24px) saturate(180%) | 64% surface
+ *   - regular   : cards, sheets, modals             | blur(18px) saturate(160%) | 72% surface
+ *   - thin      : popovers, hover cards             | blur(12px) saturate(140%) | 56% surface
+ *   - vibrant   : decorative orbs (max 1/page)      | blur(40px) + SVG displacement
+ *
+ * Accessibility (SPEC §5.6):
+ *   - prefers-reduced-transparency → collapse glass to solid surfaces
+ *   - prefers-reduced-motion       → disable refraction; freeze specular highlights
+ */
+
+@theme {
+  /* ---------- color tokens (sapphire-deep, oklch) ----------
+   * Palette philosophy: replace pure black with deep sapphire so the dark
+   * surfaces themselves are *alive*. Accent is vivid cyan ("living color")
+   * with an emerald secondary for sub-accents. Chroma stays under 0.06 on
+   * surfaces so backdrops don't fight content (Apple HIG calm).
+   */
+  --color-surface-0: oklch(0.085 0.028 245); /* deep sapphire-night */
+  --color-surface-1: oklch(0.13 0.04 240); /* lifted sapphire */
+  --color-surface-2: oklch(0.18 0.05 235); /* card body */
+  --color-surface-3: oklch(0.26 0.06 230); /* hover / raised */
+  --color-ink-0: oklch(0.98 0.012 220); /* near-white, faint cyan cast */
+  --color-ink-1: oklch(0.88 0.022 215);
+  --color-ink-2: oklch(0.72 0.028 210);
+  --color-ink-3: oklch(0.55 0.032 205);
+
+  /* Living-color accent — bioluminescent cyan that pops on dark sapphire */
+  --color-accent: oklch(0.84 0.16 200); /* ~ #3DD3E8 */
+  --color-accent-strong: oklch(0.76 0.18 195); /* ~ #19B3C8 */
+  /* Emerald secondary — restrained use (positive states, taste highlights) */
+  --color-accent-secondary: oklch(0.74 0.16 165); /* ~ #2DD49C */
+
+  /* Content tint — overridden per-page from poster palette */
+  --color-content-tint: oklch(0.55 0.08 225);
+
+  /* ---------- typography (SPEC §5.4) ---------- */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Display", "Inter",
+    system-ui, sans-serif;
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+
+  /* Type scale (rem) — modular 1.25 */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: 2.75rem;
+  --text-4xl: 4rem;
+
+  /* ---------- motion (SPEC §5.5) ---------- */
+  --spring-fast: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring-default: cubic-bezier(0.16, 1, 0.3, 1);
+  --spring-soft: cubic-bezier(0.34, 1.16, 0.64, 1);
+  --duration-fast: 180ms;
+  --duration-default: 280ms;
+  --duration-soft: 520ms;
+}
+
+/* ---------- Glass material variables ---------- */
+:root {
+  --glass-chrome-blur: 24px;
+  --glass-chrome-sat: 180%;
+  --glass-chrome-alpha: 0.64;
+
+  --glass-regular-blur: 18px;
+  --glass-regular-sat: 160%;
+  --glass-regular-alpha: 0.72;
+
+  --glass-thin-blur: 12px;
+  --glass-thin-sat: 140%;
+  --glass-thin-alpha: 0.56;
+
+  --glass-vibrant-blur: 40px;
+  --glass-vibrant-sat: 200%;
+  --glass-vibrant-alpha: 0.5;
+
+  /* Surface tint used inside color-mix() — flipped automatically by .dark */
+  --glass-surface: var(--color-surface-1);
+  /* Cyan-tinted glass edge — gives every glass surface a faint living glow */
+  --glass-ring: oklch(0.92 0.08 200 / 0.10);
+  --glass-ring-strong: oklch(0.92 0.08 200 / 0.20);
+}
+
+/* ---------- base ---------- */
+html,
+body {
+  background: var(--color-surface-0);
+  color: var(--color-ink-0);
+  font-family: var(--font-text);
+  font-feature-settings: "ss01", "cv01";
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-accent) 35%, transparent);
+  color: var(--color-ink-0);
+}
+
+/* Apple-style focus ring (SPEC §5.6).
+ * Beefier on large viewports (10-foot TV use) — TV remotes / D-pads need a
+ * focus indicator readable from across the room. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+@media (min-width: 1920px) {
+  :focus-visible {
+    outline-width: 3px;
+    outline-offset: 6px;
+    box-shadow: 0 0 0 8px color-mix(in oklab, var(--color-accent) 25%, transparent);
+  }
+}
+
+/* ---------- Glass primitives — CSS class layer ---------- */
+
+/* glass-base must be a Tailwind v4 @utility (not a plain class) so the
+ * @apply directive below can compose it into the variants. */
+@utility glass-base {
+  position: relative;
+  isolation: isolate;
+  border-radius: 1.25rem;
+  border: 1px solid var(--glass-ring);
+  box-shadow: inset 0 1px 0 var(--glass-ring-strong), 0 24px 60px -24px oklch(0 0 0 / 0.55);
+  transition: transform var(--duration-default) var(--spring-default), background-color
+    var(--duration-default) var(--spring-default);
+}
+
+@layer components {
+  .glass-chrome {
+    @apply glass-base;
+    background: color-mix(
+      in oklab,
+      var(--glass-surface) calc(var(--glass-chrome-alpha) * 100%),
+      transparent
+    );
+    backdrop-filter: blur(var(--glass-chrome-blur)) saturate(var(--glass-chrome-sat));
+    -webkit-backdrop-filter: blur(var(--glass-chrome-blur)) saturate(var(--glass-chrome-sat));
+  }
+
+  .glass-regular {
+    @apply glass-base;
+    background: color-mix(
+      in oklab,
+      var(--glass-surface) calc(var(--glass-regular-alpha) * 100%),
+      transparent
+    );
+    backdrop-filter: blur(var(--glass-regular-blur)) saturate(var(--glass-regular-sat));
+    -webkit-backdrop-filter: blur(var(--glass-regular-blur)) saturate(var(--glass-regular-sat));
+  }
+
+  .glass-thin {
+    @apply glass-base;
+    background: color-mix(
+      in oklab,
+      var(--glass-surface) calc(var(--glass-thin-alpha) * 100%),
+      transparent
+    );
+    backdrop-filter: blur(var(--glass-thin-blur)) saturate(var(--glass-thin-sat));
+    -webkit-backdrop-filter: blur(var(--glass-thin-blur)) saturate(var(--glass-thin-sat));
+  }
+
+  .glass-vibrant {
+    @apply glass-base;
+    background: color-mix(
+      in oklab,
+      var(--color-content-tint) calc(var(--glass-vibrant-alpha) * 100%),
+      transparent
+    );
+    backdrop-filter: blur(var(--glass-vibrant-blur)) saturate(var(--glass-vibrant-sat));
+    -webkit-backdrop-filter: blur(var(--glass-vibrant-blur)) saturate(var(--glass-vibrant-sat));
+    /* SVG displacement filter referenced via #lumen-liquid-displace on the page */
+    filter: url(#lumen-liquid-displace);
+  }
+
+  /* Specular highlight overlay — applied to interactive glass via data-hover */
+  .glass-specular::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      oklch(1 0 0 / 0.18) 0%,
+      transparent 35%,
+      transparent 65%,
+      oklch(1 0 0 / 0.06) 100%
+    );
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+/* ---------- Accessibility fallbacks (SPEC §5.2, §5.6) ---------- */
+
+/* No backdrop-filter support → collapse to opaque tinted surfaces */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-chrome,
+  .glass-regular,
+  .glass-thin,
+  .glass-vibrant {
+    background: var(--color-surface-2) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+  }
+}
+
+/* User asked for reduced transparency → collapse glass to solid.
+ * `prefers-reduced-transparency` is a Media Queries Level 5 feature shipping in
+ * Safari 18+ / Chrome 118+. Biome's media-feature list is older — suppress.
+ */
+/* biome-ignore lint/correctness/noUnknownMediaFeatureName: MQ Level 5 feature */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-chrome,
+  .glass-regular,
+  .glass-thin,
+  .glass-vibrant {
+    background: var(--color-surface-2) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+  }
+  .glass-specular::after {
+    display: none;
+  }
+}
+
+/* Slow ken-burns scale used on cinematic backdrops (Title detail, Hero).
+ * Pure CSS so backdrops on Server Components can animate without going client. */
+@keyframes ken-burns-slow {
+  from {
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.ken-burns-slow {
+  animation: ken-burns-slow 14s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Reduced motion → freeze all transitions / specular animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .glass-vibrant {
+    filter: none !important;
+  }
+  .ken-burns-slow {
+    animation: none !important;
+  }
+}

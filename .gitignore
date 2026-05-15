@@ -1,0 +1,69 @@
+# Lumen — gitignore
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Testing
+coverage/
+.nyc_output/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+dist-ssr/
+
+# Production
+*.tsbuildinfo
+
+# Debug
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Local env files
+.env
+.env*.local
+.env.development
+.env.production
+*.local
+
+# Vercel
+.vercel
+
+# Drizzle generated artifacts
+drizzle/meta/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*.sw?
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project-local
+movies-project.zip
+
+.vercel
+.env*.local
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
