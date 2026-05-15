@@ -41,20 +41,112 @@ interface IaFile {
   source?: string;
 }
 
-/** Resolve the largest playable MP4 on an Internet Archive item. */
-async function resolveArchiveMp4(identifier: string): Promise<string | null> {
-  const res = await fetch(`https://archive.org/metadata/${encodeURIComponent(identifier.trim())}`);
-  if (!res.ok) return null;
-  const meta = (await res.json()) as { files?: IaFile[]; server?: string; dir?: string };
-  const files = meta.files ?? [];
-  const mp4s = files
-    .filter((f) => /\.mp4$/i.test(f.name))
+interface IaSearchDoc {
+  identifier: string;
+  title?: string;
+  year?: number;
+}
+
+// IA quirk: GET /metadata/<bad-id> returns HTTP 200 with {} (no 404).
+// Always check that meta.files is a non-empty array before trusting an id.
+
+const MIN_VIDEO_BYTES = 3 * 1024 * 1024; // 3 MB — skip thumbnails/samples
+const MAX_VIDEO_BYTES = 8 * 1024 * 1024 * 1024; // 8 GB — skip unprocessed raw dumps
+
+/** Return true if a file entry looks like a playable video derivative. */
+function isVideoFile(f: IaFile): boolean {
+  const fmt = (f.format ?? "").toLowerCase();
+  const name = f.name.toLowerCase();
+  return (
+    name.endsWith(".mp4") ||
+    name.endsWith(".ia.mp4") ||
+    fmt.includes("mpeg4") ||
+    fmt.includes("h.264") ||
+    fmt.includes("512kb")
+  );
+}
+
+/** Pick the best video file from a metadata file list.
+ *  Prefers the largest file that is within the practical [MIN, MAX] byte range.
+ *  Returns null when no usable file exists.
+ */
+function pickBestVideo(files: IaFile[], identifier: string): string | null {
+  const candidates = files
+    .filter(isVideoFile)
     .map((f) => ({ name: f.name, size: Number(f.size ?? 0) }))
+    .filter((f) => f.size >= MIN_VIDEO_BYTES && f.size <= MAX_VIDEO_BYTES)
     .sort((a, b) => b.size - a.size);
-  if (mp4s.length === 0) return null;
-  const best = mp4s[0]!;
-  // Stable public download URL form.
-  return `https://archive.org/download/${encodeURIComponent(identifier.trim())}/${encodeURIComponent(best.name)}`;
+
+  if (candidates.length === 0) return null;
+  const best = candidates[0]!;
+  const id = identifier.trim();
+  return `https://archive.org/download/${encodeURIComponent(id)}/${encodeURIComponent(best.name)}`;
+}
+
+/** Fetch IA metadata for one identifier. Returns the file list (may be empty). */
+async function fetchIaMeta(identifier: string): Promise<IaFile[]> {
+  const res = await fetch(
+    `https://archive.org/metadata/${encodeURIComponent(identifier.trim())}`,
+  );
+  if (!res.ok) return [];
+  const meta = (await res.json()) as { files?: IaFile[] };
+  return meta.files ?? [];
+}
+
+/**
+ * Resolve the best playable MP4 URL for an Internet Archive item.
+ *
+ * Strategy:
+ *   1. Try the hardcoded catalog identifier directly.
+ *   2. If it yields no usable video, run an IA advanced-search for the title
+ *      and check each candidate identifier in order, preferring one whose
+ *      year is within ±1 of the catalog year.
+ *
+ * NOTE: IA returns HTTP 200 with an empty body `{}` for unknown identifiers —
+ * there is no 404.  Always validate that `files` is a non-empty array.
+ */
+async function resolveArchiveMp4(
+  identifier: string,
+  title: string,
+  year: number,
+): Promise<string | null> {
+  // --- Pass 1: hardcoded identifier ---
+  const files = await fetchIaMeta(identifier);
+  const direct = pickBestVideo(files, identifier);
+  if (direct) return direct;
+
+  // --- Pass 2: IA title search fallback ---
+  const q = encodeURIComponent(`title:(${title}) AND mediatype:movies`);
+  const searchUrl =
+    `https://archive.org/advancedsearch.php?q=${q}` +
+    `&fl[]=identifier&fl[]=year&rows=15&output=json`;
+
+  let docs: IaSearchDoc[] = [];
+  try {
+    const res = await fetch(searchUrl);
+    if (res.ok) {
+      const body = (await res.json()) as { response?: { docs?: IaSearchDoc[] } };
+      docs = body.response?.docs ?? [];
+    }
+  } catch {
+    // search is best-effort; fall through
+  }
+
+  // Sort: candidates whose year is within ±1 of catalog year first.
+  docs.sort((a, b) => {
+    const da = Math.abs((a.year ?? 9999) - year);
+    const db = Math.abs((b.year ?? 9999) - year);
+    return da - db;
+  });
+
+  for (const doc of docs) {
+    if (!doc.identifier || doc.identifier === identifier) continue;
+    const candidateFiles = await fetchIaMeta(doc.identifier);
+    const url = pickBestVideo(candidateFiles, doc.identifier);
+    if (url) return url;
+  }
+
+  return null;
 }
 
 async function alreadyIngested(titleId: string): Promise<boolean> {
@@ -80,7 +172,7 @@ async function ingestOne(entry: Cc0CatalogEntry): Promise<void> {
     return;
   }
 
-  const input = await resolveArchiveMp4(entry.archiveIdentifier);
+  const input = await resolveArchiveMp4(entry.archiveIdentifier, entry.title, entry.year);
   if (!input) {
     console.warn(`  ✗ no MP4 found on archive.org item "${entry.archiveIdentifier}" — skipping`);
     return;
