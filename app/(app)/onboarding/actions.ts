@@ -20,15 +20,13 @@
  */
 
 import { getActiveProfileId } from "@/lib/auth/active-profile";
-import {
-  clearOnboardingSnooze,
-  setOnboardingSnooze,
-} from "@/lib/auth/onboarding-snooze";
+import { clearOnboardingSnooze, setOnboardingSnooze } from "@/lib/auth/onboarding-snooze";
 import { profileBelongsToCurrentAccount } from "@/lib/auth/profile-queries";
 import { db } from "@/lib/db/client";
 import { getTitleEmbedding, getTitlesByTmdbIds } from "@/lib/db/queries";
 import { profiles, ratings } from "@/lib/db/schema";
 import { MIN_RATINGS_FOR_CENTROID } from "@/lib/onboarding/seed-films";
+import { computeTasteCentroid, toVectorLiteral } from "@/lib/profile/centroid";
 import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
@@ -89,23 +87,8 @@ export async function submitOnboardingAction(payload: unknown): Promise<void> {
     weightedEmbeddings.push({ vec: emb, w: r.stars / 5 }); // 0.2..1.0
   }
 
-  let centroidLiteral: string | null = null;
-  if (weightedEmbeddings.length > 0) {
-    const dim = weightedEmbeddings[0]!.vec.length;
-    const accum = new Array<number>(dim).fill(0);
-    let totalW = 0;
-    for (const { vec, w } of weightedEmbeddings) {
-      if (vec.length !== dim) continue;
-      for (let i = 0; i < dim; i++) accum[i] += vec[i]! * w;
-      totalW += w;
-    }
-    if (totalW > 0) {
-      const mean = accum.map((x) => x / totalW);
-      const norm = Math.sqrt(mean.reduce((s, x) => s + x * x, 0)) || 1;
-      const normalized = mean.map((x) => x / norm);
-      centroidLiteral = `[${normalized.join(",")}]`;
-    }
-  }
+  const centroid = computeTasteCentroid(weightedEmbeddings);
+  const centroidLiteral: string | null = centroid ? toVectorLiteral(centroid) : null;
 
   // 3. Persist centroid + onboarding_done. Use raw SQL for the vector cast.
   if (centroidLiteral) {

@@ -12,21 +12,13 @@
 
 import { db } from "@/lib/db/client";
 import { recapStates } from "@/lib/db/schema";
+import { generateShareToken } from "@/lib/recap/token";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 
-const TOKEN_BYTES = 16;
-
-function base64url(bytes: Uint8Array): string {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-export function generateShareToken(): string {
-  const bytes = new Uint8Array(TOKEN_BYTES);
-  crypto.getRandomValues(bytes);
-  return base64url(bytes);
-}
+// Re-export the pure generator so existing import sites
+// (`@/lib/recap/share`) keep working; the implementation lives in
+// `@/lib/recap/token` (DB-free → unit-testable).
+export { generateShareToken };
 
 /**
  * Ensure the latest recap row for a profile has a share token; create one

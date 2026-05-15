@@ -15,6 +15,7 @@ import { profileBelongsToCurrentAccount } from "@/lib/auth/profile-queries";
 import { getTitlesByMood } from "@/lib/db/queries";
 import type { Title } from "@/lib/db/schema";
 import { MOOD_PRESET_LIST, getMoodPreset } from "@/lib/discover/presets";
+import { fitsBudget } from "@/lib/discover/timebox-rule";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -60,8 +61,8 @@ async function MoodPreset({ params }: { params: Promise<{ slug: string }> }) {
   // Reuse the Mood Dial pgvector query, then apply the optional runtime cap.
   let rows = await getTitlesByMood(preset.valence, preset.arousal, 36);
   if (preset.runtimeMax != null) {
-    const cap = preset.runtimeMax + 8;
-    rows = rows.filter((t) => t.runtimeMin != null && t.runtimeMin <= cap);
+    const runtimeMax = preset.runtimeMax;
+    rows = rows.filter((t) => fitsBudget(t.runtimeMin ?? null, runtimeMax));
   }
 
   return (

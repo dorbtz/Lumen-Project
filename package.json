@@ -18,7 +18,10 @@
     "db:setup": "tsx --env-file=.env.local scripts/db-bootstrap.ts",
     "seed:catalog": "tsx --env-file=.env.local scripts/seed-catalog.ts",
     "embed:titles": "tsx scripts/embed-titles.ts",
-    "ingest:cc0": "tsx scripts/ingest-cc0.ts"
+    "ingest:cc0": "tsx scripts/ingest-cc0.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.73",
@@ -54,6 +57,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.60.0",
     "@serwist/cli": "^9.5.11",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.10.2",
@@ -65,7 +69,8 @@
     "serwist": "^9.5.11",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.6"
   },
   "engines": {
     "node": ">=20"

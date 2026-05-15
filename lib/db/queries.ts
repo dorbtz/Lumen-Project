@@ -7,6 +7,8 @@
  * memoise per-request when needed. Cache Components is OFF — see Week 1 lesson #1.
  */
 
+import { moodQueryLiteral } from "@/lib/discover/mood-vector";
+import { runtimeCap } from "@/lib/discover/timebox-rule";
 import { and, desc, eq, ilike, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "./client";
 import { type Title, profiles, titles } from "./schema";
@@ -93,11 +95,7 @@ export async function getTitlesByMood(
   arousal: number,
   limit = 24,
 ): Promise<Title[]> {
-  const v = Math.max(-1, Math.min(1, valence));
-  const a = Math.max(-1, Math.min(1, arousal));
-  const themeDims = 62;
-  const queryVec = [v, a, ...new Array(themeDims).fill(0)];
-  const queryLiteral = `[${queryVec.join(",")}]`;
+  const queryLiteral = moodQueryLiteral(valence, arousal);
   const rows = await db.execute(sql`
     SELECT id, tmdb_id AS "tmdbId", type, title, original_title AS "originalTitle",
            release_year AS "releaseYear", runtime_min AS "runtimeMin", overview, tagline,
@@ -164,7 +162,7 @@ export async function getTitlesByTimebox(
   centroid: number[] | null,
   limit = 24,
 ): Promise<Title[]> {
-  const cap = Math.round(maxMinutes) + 8; // grace
+  const cap = runtimeCap(maxMinutes); // +8 grace (pure rule)
   if (!centroid || centroid.length !== 384) {
     const rows = await db.execute(sql`
       SELECT id, tmdb_id AS "tmdbId", type, title, original_title AS "originalTitle",

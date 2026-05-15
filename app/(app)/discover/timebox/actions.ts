@@ -17,6 +17,7 @@ import { getActiveProfileId } from "@/lib/auth/active-profile";
 import { profileBelongsToCurrentAccount } from "@/lib/auth/profile-queries";
 import { getProfileTasteCentroid, getTitlesByTimebox } from "@/lib/db/queries";
 import type { Title } from "@/lib/db/schema";
+import { isViableBudget } from "@/lib/discover/timebox-rule";
 
 export interface TimeboxSearchInput {
   maxMinutes: number;
@@ -27,8 +28,8 @@ export async function searchByTimeboxAction(
   input: TimeboxSearchInput,
 ): Promise<TitlePreviewData[]> {
   const maxMinutes = Math.round(input.maxMinutes);
-  // Spec: empty state below 40 minutes.
-  if (!Number.isFinite(maxMinutes) || maxMinutes < 40) return [];
+  // Spec: empty state below 40 minutes (pure rule, unit-tested).
+  if (!isViableBudget(maxMinutes)) return [];
 
   const profileId = await getActiveProfileId();
   if (!profileId || !(await profileBelongsToCurrentAccount(profileId))) {
