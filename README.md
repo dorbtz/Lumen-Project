@@ -149,16 +149,7 @@ vercel env pull .env.local
 
 See [`.env.example`](.env.example) for the full annotated list.
 
-### 3. Set up the database
-
-```bash
-npm run db:migrate     # apply Drizzle migrations (incl. pgvector + indexes)
-npm run db:setup       # bootstrap extensions / base data
-npm run seed:catalog   # seed the TMDB catalog
-npm run embed:titles   # generate Gemini taste embeddings for the catalog
-```
-
-### 4. Run
+### 3. Run
 
 ```bash
 npm run dev
@@ -166,13 +157,11 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000), sign up, rate the 10 onboarding films, and the taste model comes alive.
 
-### 5. *(optional)* Ingest the CC0 player catalog
-
-```bash
-npm run ingest:cc0     # uploads ~10 public-domain films to Mux for HLS playback
-```
-
-> Mux's free plan caps an account at **10 video assets**, so the catalog is intentionally trimmed to 10. Titles without a Mux asset gracefully fall back to the YouTube trailer.
+> **Database & data pipeline:** schema migrations and the TMDB seed / Gemini
+> embedding / Mux CC0 ingest are handled by operational tooling maintained
+> privately (not part of this public repo). The Mux free plan caps an account
+> at **10 video assets**, so the playable catalog is intentionally trimmed to
+> 10; titles without a Mux asset gracefully fall back to the YouTube trailer.
 
 ---
 
@@ -186,8 +175,6 @@ npm run ingest:cc0     # uploads ~10 public-domain films to Mux for HLS playback
 | `npm run check` | Biome lint + format (autofix) |
 | `npm test` | Vitest unit suite |
 | `npm run test:e2e` | Playwright E2E happy paths |
-| `npm run db:migrate` / `db:studio` | Drizzle migrate / Studio |
-| `npm run seed:catalog` / `embed:titles` / `ingest:cc0` | Data pipeline |
 
 ---
 
@@ -211,9 +198,8 @@ app/
   api/              cron jobs + Svix-verified webhooks
 components/         Liquid Glass UI, Mood Dial, Why Card, analytics
 lib/                db (Drizzle schema), ai (Gemini client), mux,
-                    tmdb, cron auth
-drizzle/            SQL migrations (pgvector, ivfflat indexes, share token)
-scripts/            db bootstrap, catalog seed, embeddings, CC0 ingest
+                    tmdb, cron auth, discovery rules
+drizzle/            SQL migrations (pgvector, ivfflat indexes, collections)
 tests/              Vitest unit + Playwright E2E
 docs/screenshots/   README imagery
 ```

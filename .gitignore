@@ -72,3 +72,8 @@ movies-project.zip
 public/sw.js
 public/sw.js.map
 public/swe-worker-*.js
+
+# Kept local-only (operational tooling + internal specs) — not published
+SPEC.md
+SPEC_COMPLETION.md
+scripts/
