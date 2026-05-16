@@ -205,6 +205,7 @@ export async function getTitlesByTimebox(
   maxMinutes: number,
   centroid: number[] | null,
   limit = 24,
+  type: "movie" | "tv" = "movie",
 ): Promise<Title[]> {
   const cap = runtimeCap(maxMinutes); // +8 grace (pure rule)
   const floor = runtimeFloor(maxMinutes); // band lower edge (pure rule)
@@ -224,7 +225,7 @@ export async function getTitlesByTimebox(
     SELECT ${TIMEBOX_COLS}
     FROM titles
     WHERE poster_path IS NOT NULL
-      AND type = 'movie'
+      AND type = ${type}
       AND runtime_min IS NOT NULL
       AND runtime_min >= ${floor}
       AND runtime_min <= ${cap}

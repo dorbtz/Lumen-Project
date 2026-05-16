@@ -4,12 +4,12 @@
  * Time-Box Discovery — server action (SPEC_COMPLETION §1 A1, SPEC §3.1 #5).
  *
  * Input: a runtime budget in minutes. Logic: filter
- * `titles.runtime_min <= budget (+8 grace)`, rank by the active profile's
+ * `runtime_min` to the band [floor..cap], rank by the active profile's
  * taste-centroid cosine (the SAME pgvector path the Mood Dial / taste rows
  * use), tie-break popularity. No LLM — zero new AI call sites.
  *
- * Empty result if budget < 40 min (spec rule — surfaced as an empty state
- * by the page).
+ * Returns Movies and Series separately (TV runtime = typical episode
+ * length, so "I have 45 min" fits a drama episode). Empty below 40 min.
  */
 
 import type { TitlePreviewData } from "@/components/title/TitlePreviewCard";
@@ -24,22 +24,32 @@ export interface TimeboxSearchInput {
   limit?: number;
 }
 
-export async function searchByTimeboxAction(
-  input: TimeboxSearchInput,
-): Promise<TitlePreviewData[]> {
+export interface TimeboxResult {
+  movies: TitlePreviewData[];
+  series: TitlePreviewData[];
+}
+
+export async function searchByTimeboxAction(input: TimeboxSearchInput): Promise<TimeboxResult> {
+  const empty: TimeboxResult = { movies: [], series: [] };
   const maxMinutes = Math.round(input.maxMinutes);
   // Spec: empty state below 40 minutes (pure rule, unit-tested).
-  if (!isViableBudget(maxMinutes)) return [];
+  if (!isViableBudget(maxMinutes)) return empty;
 
   const profileId = await getActiveProfileId();
   if (!profileId || !(await profileBelongsToCurrentAccount(profileId))) {
-    return [];
+    return empty;
   }
 
   const limit = Math.max(4, Math.min(48, input.limit ?? 24));
   const centroid = await getProfileTasteCentroid(profileId);
-  const titles = await getTitlesByTimebox(maxMinutes, centroid, limit);
-  return titles.map(toPreview);
+  const [movies, series] = await Promise.all([
+    getTitlesByTimebox(maxMinutes, centroid, limit, "movie"),
+    getTitlesByTimebox(maxMinutes, centroid, limit, "tv"),
+  ]);
+  return {
+    movies: movies.map(toPreview),
+    series: series.map(toPreview),
+  };
 }
 
 function toPreview(t: Title): TitlePreviewData {

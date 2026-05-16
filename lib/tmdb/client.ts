@@ -47,6 +47,29 @@ export interface TmdbTvLite {
   media_type?: "tv";
 }
 
+export interface TmdbTvDetail {
+  id: number;
+  name: string;
+  original_name?: string;
+  overview: string;
+  tagline?: string;
+  first_air_date?: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  popularity: number;
+  vote_average: number;
+  vote_count: number;
+  genres?: { id: number; name: string }[];
+  /** Per-episode runtimes in minutes (may be empty/multiple). */
+  episode_run_time?: number[];
+  number_of_seasons?: number;
+  number_of_episodes?: number;
+  // TV keywords come back under `results` (movies use `keywords`).
+  keywords?: { results?: { id: number; name: string }[] };
+  external_ids?: { imdb_id?: string };
+  media_type?: "tv";
+}
+
 export interface TmdbPerson {
   id: number;
   name: string;
@@ -281,6 +304,23 @@ export const tmdb = {
         language: "en-US",
       },
       "search:movie",
+    ),
+
+  // --- TV (series) — used by the catalog seed + Time-Box Series row ---
+  tvPopular: (page = 1) =>
+    tmdbFetch<TmdbPaged<TmdbTvDetail>>("/tv/popular", { page, language: "en-US" }),
+
+  trendingTv: (window: "day" | "week" = "week", page = 1) =>
+    tmdbFetch<TmdbPaged<TmdbTvDetail>>(`/trending/tv/${window}`, {
+      page,
+      language: "en-US",
+    }),
+
+  tv: (id: number) =>
+    tmdbFetch<TmdbTvDetail>(
+      `/tv/${id}`,
+      { append_to_response: "keywords,external_ids", language: "en-US" },
+      `tv:${id}`,
     ),
 
   poster: (path: string | null | undefined, size: "w185" | "w342" | "w500" | "w780" = "w500") =>

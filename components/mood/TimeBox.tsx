@@ -11,7 +11,7 @@
  * 40 min the spec mandates an empty state.
  */
 
-import { searchByTimeboxAction } from "@/app/(app)/discover/timebox/actions";
+import { type TimeboxResult, searchByTimeboxAction } from "@/app/(app)/discover/timebox/actions";
 import { TitlePreviewCard, type TitlePreviewData } from "@/components/title/TitlePreviewCard";
 import { capture } from "@/lib/analytics/events";
 import { runtimeCap, runtimeFloor } from "@/lib/discover/timebox-rule";
@@ -25,7 +25,7 @@ const MIN_VIABLE = 40; // spec: empty state below this
 
 export function TimeBox() {
   const [minutes, setMinutes] = useState(120);
-  const [results, setResults] = useState<TitlePreviewData[]>([]);
+  const [results, setResults] = useState<TimeboxResult>({ movies: [], series: [] });
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastQuery = useRef<string>("");
@@ -115,23 +115,62 @@ export function TimeBox() {
         {pending && <span className="ml-2 text-[var(--color-accent)]">…</span>}
       </div>
 
-      <div className="w-full">
+      <div className="w-full space-y-12">
         {tooShort ? (
           <p className="mt-8 text-sm text-center text-[var(--color-ink-3)]">
             Give it at least 40 minutes — most features need room to breathe.
           </p>
-        ) : results.length === 0 ? (
+        ) : results.movies.length === 0 && results.series.length === 0 ? (
           <p className="mt-8 text-sm text-center text-[var(--color-ink-3)]">
-            {pending ? "Finding films that fit…" : "No films match that runtime yet."}
+            {pending ? "Finding what fits…" : "Nothing lands in that runtime — try a wider budget."}
           </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {results.map((r) => (
-              <TitlePreviewCard key={r.tmdbId} data={r} posterWidth={170} className="w-full" />
-            ))}
-          </div>
+          <>
+            <TimeboxSection
+              label="Movies"
+              hint={`${results.movies.length} that fit`}
+              items={results.movies}
+            />
+            <TimeboxSection
+              label="Series"
+              hint={
+                results.series.length > 0
+                  ? `${results.series.length} — by episode length`
+                  : "No series in this runtime yet"
+              }
+              items={results.series}
+            />
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+function TimeboxSection({
+  label,
+  hint,
+  items,
+}: {
+  label: string;
+  hint: string;
+  items: TitlePreviewData[];
+}) {
+  return (
+    <section>
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-lg md:text-xl tracking-tight font-[var(--font-display)]">{label}</h2>
+        <p className="text-[11px] uppercase tracking-widest text-[var(--color-ink-3)]">{hint}</p>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-[var(--color-ink-3)]">Nothing here for this runtime.</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {items.map((r) => (
+            <TitlePreviewCard key={r.tmdbId} data={r} posterWidth={170} className="w-full" />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
