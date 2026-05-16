@@ -32,8 +32,20 @@ export function SeasonsBrowser({
   tvId: number;
   seasons: SeasonSummaryVM[];
 }) {
-  // Default to the first season that actually has episodes.
-  const first = seasons.find((s) => s.episodeCount > 0) ?? seasons[0];
+  // Specials (season 0) always sort to the END (rightmost), after the last
+  // numbered season. Everything else ascending.
+  const sorted = [...seasons].sort((a, b) => {
+    const ax = a.seasonNumber === 0 ? Number.POSITIVE_INFINITY : a.seasonNumber;
+    const bx = b.seasonNumber === 0 ? Number.POSITIVE_INFINITY : b.seasonNumber;
+    return ax - bx;
+  });
+  const labelFor = (s: SeasonSummaryVM) =>
+    s.seasonNumber === 0 ? "Specials" : s.name || `Season ${s.seasonNumber}`;
+  // Default to the first numbered season that has episodes (not Specials).
+  const first =
+    sorted.find((s) => s.seasonNumber !== 0 && s.episodeCount > 0) ??
+    sorted.find((s) => s.episodeCount > 0) ??
+    sorted[0];
   const [active, setActive] = useState<number | null>(first?.seasonNumber ?? null);
   const [cache, setCache] = useState<Record<number, EpisodeVM[]>>({});
   const [pending, startTransition] = useTransition();
@@ -65,9 +77,10 @@ export function SeasonsBrowser({
         </p>
       </div>
 
-      {/* Season pills */}
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-        {seasons.map((s) => {
+      {/* Season pills — wrap instead of horizontal-scroll so none get
+          clipped; Specials sits last. */}
+      <div className="flex flex-wrap gap-2.5">
+        {sorted.map((s) => {
           const on = s.seasonNumber === active;
           return (
             <button
@@ -78,16 +91,16 @@ export function SeasonsBrowser({
                 setOpen(null);
               }}
               aria-pressed={on}
-              className={`shrink-0 min-h-[44px] rounded-2xl px-4 py-2 text-left ring-1 transition-colors ${
+              className={`flex flex-col justify-center min-h-[52px] rounded-2xl px-4 py-2 text-left ring-1 transition-colors ${
                 on
                   ? "bg-[var(--color-accent)]/15 ring-[var(--color-accent)]/60 text-[var(--color-ink-0)]"
                   : "bg-white/5 ring-white/10 text-[var(--color-ink-2)] hover:bg-white/10"
               }`}
             >
-              <span className="block text-sm font-[var(--font-display)] tracking-tight">
-                {s.name || `Season ${s.seasonNumber}`}
+              <span className="block text-sm font-[var(--font-display)] tracking-tight leading-tight whitespace-nowrap">
+                {labelFor(s)}
               </span>
-              <span className="block text-[10px] uppercase tracking-widest text-[var(--color-ink-3)]">
+              <span className="block mt-0.5 text-[10px] uppercase tracking-widest text-[var(--color-ink-3)] leading-tight whitespace-nowrap">
                 {s.episodeCount} ep{s.episodeCount === 1 ? "" : "s"}
                 {s.airYear ? ` · ${s.airYear}` : ""}
               </span>
@@ -103,7 +116,7 @@ export function SeasonsBrowser({
             <div className="hidden sm:block w-14 shrink-0 rounded-lg overflow-hidden ring-1 ring-white/10">
               <Image
                 src={`${POSTER}${activeSeason.posterPath}`}
-                alt={activeSeason.name}
+                alt={labelFor(activeSeason)}
                 width={185}
                 height={278}
                 className="object-cover w-full h-auto"
@@ -112,7 +125,7 @@ export function SeasonsBrowser({
           )}
           <div className="min-w-0">
             <p className="text-base font-[var(--font-display)] tracking-tight">
-              {activeSeason?.name || `Season ${active}`}
+              {activeSeason ? labelFor(activeSeason) : `Season ${active}`}
             </p>
             <p className="text-[11px] uppercase tracking-widest text-[var(--color-ink-3)]">
               {pending && episodes.length === 0
@@ -127,7 +140,7 @@ export function SeasonsBrowser({
             No episode data for this season.
           </p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
             {episodes.map((e) => {
               const expanded = open === e.episodeNumber;
               return (
@@ -135,7 +148,11 @@ export function SeasonsBrowser({
                   key={e.episodeNumber}
                   type="button"
                   onClick={() => setOpen(expanded ? null : e.episodeNumber)}
-                  className="text-left rounded-2xl overflow-hidden ring-1 ring-white/8 bg-white/[0.03] hover:bg-white/[0.06] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                  className={`text-left rounded-2xl overflow-hidden ring-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${
+                    expanded
+                      ? "ring-[var(--color-accent)]/50 bg-white/[0.07]"
+                      : "ring-white/8 bg-white/[0.03] hover:bg-white/[0.06]"
+                  }`}
                 >
                   <div className="relative aspect-video bg-[var(--color-surface-2)]">
                     {e.stillPath ? (
