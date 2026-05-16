@@ -47,6 +47,34 @@ export interface TmdbTvLite {
   media_type?: "tv";
 }
 
+export interface TmdbSeasonSummary {
+  season_number: number;
+  name: string;
+  episode_count: number;
+  poster_path: string | null;
+  air_date?: string | null;
+  overview?: string;
+}
+
+export interface TmdbEpisode {
+  episode_number: number;
+  season_number: number;
+  name: string;
+  overview: string;
+  still_path: string | null;
+  air_date?: string | null;
+  runtime?: number | null;
+  vote_average?: number;
+}
+
+export interface TmdbSeasonDetail {
+  season_number: number;
+  name: string;
+  overview?: string;
+  poster_path: string | null;
+  episodes?: TmdbEpisode[];
+}
+
 export interface TmdbTvDetail {
   id: number;
   name: string;
@@ -64,6 +92,7 @@ export interface TmdbTvDetail {
   episode_run_time?: number[];
   number_of_seasons?: number;
   number_of_episodes?: number;
+  seasons?: TmdbSeasonSummary[];
   // TV keywords come back under `results` (movies use `keywords`).
   keywords?: { results?: { id: number; name: string }[] };
   external_ids?: { imdb_id?: string };
@@ -321,6 +350,13 @@ export const tmdb = {
       `/tv/${id}`,
       { append_to_response: "keywords,external_ids", language: "en-US" },
       `tv:${id}`,
+    ),
+
+  tvSeason: (id: number, seasonNumber: number) =>
+    tmdbFetch<TmdbSeasonDetail>(
+      `/tv/${id}/season/${seasonNumber}`,
+      { language: "en-US" },
+      `tv:${id}:season:${seasonNumber}`,
     ),
 
   poster: (path: string | null | undefined, size: "w185" | "w342" | "w500" | "w780" = "w500") =>

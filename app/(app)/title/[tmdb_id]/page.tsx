@@ -14,6 +14,7 @@ import { AppChrome } from "@/components/chrome/AppChrome";
 import { GlassCard } from "@/components/glass";
 import { JournalComposer } from "@/components/journal/JournalComposer";
 import { HorizontalScroller } from "@/components/title/HorizontalScroller";
+import { type SeasonSummaryVM, SeasonsBrowser } from "@/components/title/SeasonsBrowser";
 import { TitlePreviewCard } from "@/components/title/TitlePreviewCard";
 import { WhyCard, WhyCardSkeleton } from "@/components/title/WhyCard";
 import { WatchlistButton } from "@/components/watchlist/WatchlistButton";
@@ -95,6 +96,23 @@ async function TitleDetail({ params }: PageProps) {
         if (similar.length >= 12) break;
       }
     }
+  }
+
+  // TV titles → fetch the season list for the Prime-style browser. Movies
+  // skip this entirely (zero overhead, unchanged path).
+  const isTv = row?.type === "tv" && tmdbId > 0;
+  let tvSeasons: SeasonSummaryVM[] = [];
+  if (isTv) {
+    const tv = await tmdb.tv(tmdbId).catch(() => null);
+    tvSeasons = (tv?.seasons ?? [])
+      .filter((s) => s.episode_count > 0)
+      .map((s) => ({
+        seasonNumber: s.season_number,
+        name: s.name,
+        episodeCount: s.episode_count,
+        posterPath: s.poster_path,
+        airYear: s.air_date ? Number(s.air_date.slice(0, 4)) : null,
+      }));
   }
 
   const tint = t.dominantColor;
@@ -193,6 +211,9 @@ async function TitleDetail({ params }: PageProps) {
           </p>
         </GlassCard>
       </section>
+
+      {/* TV — Prime-style seasons & episodes (only for series). */}
+      {isTv && tvSeasons.length > 0 && <SeasonsBrowser tvId={tmdbId} seasons={tvSeasons} />}
 
       {/* Why this, for you — Pillar 2 (AI Taste). Streams independently so
        * the rest of the page paints without waiting on Gemini. */}
