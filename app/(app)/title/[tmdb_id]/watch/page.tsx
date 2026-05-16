@@ -12,6 +12,7 @@ import { AppChrome } from "@/components/chrome/AppChrome";
 import { WatchPlayer } from "@/components/title/WatchPlayer";
 import { getActiveProfileId } from "@/lib/auth/active-profile";
 import { profileBelongsToCurrentAccount } from "@/lib/auth/profile-queries";
+import { posterUrl } from "@/lib/img/poster";
 import { getCc0ByTmdbId } from "@/lib/mux/client";
 import { tmdb } from "@/lib/tmdb/client";
 import { getOrSyncTitle } from "@/lib/tmdb/sync";
@@ -55,7 +56,7 @@ async function WatchSurface({ params }: PageProps) {
   const title = await getOrSyncTitle(tmdbId);
   if (!title) notFound();
 
-  const posterUrl = title.posterPath ? `https://image.tmdb.org/t/p/w780${title.posterPath}` : null;
+  const poster = posterUrl(title.posterPath, "w780");
 
   // CC0 first (themed Mux player); otherwise the YouTube trailer.
   const cc0 = await getCc0ByTmdbId(tmdbId);
@@ -93,13 +94,13 @@ async function WatchSurface({ params }: PageProps) {
       </div>
 
       {cc0?.streamUrl && cc0.source !== "mux" ? (
-        <WatchPlayer kind="direct" src={cc0.streamUrl} title={title.title} poster={posterUrl} />
+        <WatchPlayer kind="direct" src={cc0.streamUrl} title={title.title} poster={poster} />
       ) : cc0?.muxPlaybackId ? (
         <WatchPlayer
           kind="mux"
           playbackId={cc0.muxPlaybackId}
           title={title.title}
-          poster={posterUrl}
+          poster={poster}
         />
       ) : trailerKey ? (
         <WatchPlayer kind="youtube" youtubeKey={trailerKey} title={title.title} />

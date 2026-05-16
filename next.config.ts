@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "image.tmdb.org" },
       { protocol: "https", hostname: "img.clerk.com" },
       { protocol: "https", hostname: "images.clerk.dev" },
+      // Public-domain title thumbnails (Archive.org item images).
+      { protocol: "https", hostname: "archive.org" },
+      { protocol: "https", hostname: "*.archive.org" },
     ],
   },
   // SPEC §5: typography expects SF Pro / Inter Display — system fonts pass through cleanly.

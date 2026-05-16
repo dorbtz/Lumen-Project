@@ -19,6 +19,7 @@
  */
 
 import { cn } from "@/lib/cn";
+import { posterUrl } from "@/lib/img/poster";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -53,7 +54,6 @@ export interface TitlePreviewCardProps {
   priority?: boolean;
 }
 
-const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
 const HOVER_DELAY_MS = 180;
 const TRAILER_MOUNT_DELAY_MS = 360;
 
@@ -92,7 +92,7 @@ export function TitlePreviewCard({
     setShowTrailer(false);
   };
 
-  const poster = data.posterPath ? `${POSTER_BASE}${data.posterPath}` : null;
+  const poster = posterUrl(data.posterPath, "w342");
   const ratingText =
     typeof data.voteAverage === "number" && data.voteAverage > 0
       ? (data.voteAverage / 10).toFixed(1) // schema stores * 10

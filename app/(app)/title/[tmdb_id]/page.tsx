@@ -20,6 +20,7 @@ import { WatchlistButton } from "@/components/watchlist/WatchlistButton";
 import { getActiveProfileId } from "@/lib/auth/active-profile";
 import { getSimilarTitlesByEmbedding, getSimilarTitlesByGenre } from "@/lib/db/queries";
 import type { Title } from "@/lib/db/schema";
+import { backdropUrl as backdropSrc, posterUrl as posterSrc } from "@/lib/img/poster";
 import { getCc0ByTmdbId } from "@/lib/mux/client";
 import { type TmdbCastMember, type TmdbCrewMember, tmdb } from "@/lib/tmdb/client";
 import { getOrSyncTitle } from "@/lib/tmdb/sync";
@@ -97,10 +98,8 @@ async function TitleDetail({ params }: PageProps) {
   }
 
   const tint = t.dominantColor;
-  const backdropUrl = t.backdropPath
-    ? `https://image.tmdb.org/t/p/original${t.backdropPath}`
-    : null;
-  const posterUrl = t.posterPath ? `https://image.tmdb.org/t/p/w500${t.posterPath}` : null;
+  const backdropUrl = backdropSrc(t.backdropPath, "original");
+  const posterUrl = posterSrc(t.posterPath, "w500");
 
   return (
     <main
