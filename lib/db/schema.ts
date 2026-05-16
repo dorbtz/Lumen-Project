@@ -140,10 +140,16 @@ export const cc0Videos = pgTable("cc0_videos", {
   titleId: uuid("title_id")
     .notNull()
     .references(() => titles.id, { onDelete: "cascade" }),
-  muxAssetId: varchar("mux_asset_id", { length: 128 }).notNull(),
-  muxPlaybackId: varchar("mux_playback_id", { length: 128 }).notNull(),
+  // Nullable since 0005: a row is EITHER a Mux asset OR a direct-URL
+  // (Archive.org / Wikimedia) public-domain stream.
+  muxAssetId: varchar("mux_asset_id", { length: 128 }),
+  muxPlaybackId: varchar("mux_playback_id", { length: 128 }),
   durationSec: integer("duration_sec"),
   hlsUrl: text("hls_url"),
+  /** 'mux' (default, existing) | 'archive' | 'wikimedia'. */
+  source: varchar("source", { length: 16 }).default("mux"),
+  /** Direct streamable URL for non-Mux sources (mp4/webm/ogv). */
+  streamUrl: text("stream_url"),
   status: varchar("status", { length: 32 }),
 });
 

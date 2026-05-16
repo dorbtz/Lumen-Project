@@ -32,7 +32,11 @@ export interface Cc0VideoRow {
   titleId: string;
   tmdbId: number;
   title: string;
-  muxPlaybackId: string;
+  muxPlaybackId: string | null;
+  /** 'mux' | 'archive' | 'wikimedia'. */
+  source: string | null;
+  /** Direct stream URL for non-Mux sources. */
+  streamUrl: string | null;
   durationSec: number | null;
   status: string | null;
 }
@@ -43,16 +47,36 @@ export interface Cc0VideoRow {
  * YouTube trailer embed.
  */
 export async function getCc0ByTmdbId(tmdbId: number): Promise<Cc0VideoRow | null> {
-  const rows = await db.execute(sql`
-    SELECT t.id AS "titleId", t.tmdb_id AS "tmdbId", t.title AS "title",
-           c.mux_playback_id AS "muxPlaybackId", c.duration_sec AS "durationSec",
-           c.status AS "status"
-    FROM cc0_videos c
-    INNER JOIN titles t ON t.id = c.title_id
-    WHERE t.tmdb_id = ${tmdbId}
-    LIMIT 1
-  `);
-  const row = rows.rows[0] as unknown as Cc0VideoRow | undefined;
-  if (!row || !row.muxPlaybackId) return null;
+  // Migration 0005 adds c.source / c.stream_url. Until it runs on a given
+  // environment we fall back to the Mux-only shape so /watch and title
+  // pages never 500 mid-rollout (zero disruption).
+  let row: Cc0VideoRow | undefined;
+  try {
+    const rows = await db.execute(sql`
+      SELECT t.id AS "titleId", t.tmdb_id AS "tmdbId", t.title AS "title",
+             c.mux_playback_id AS "muxPlaybackId", c.source AS "source",
+             c.stream_url AS "streamUrl", c.duration_sec AS "durationSec",
+             c.status AS "status"
+      FROM cc0_videos c
+      INNER JOIN titles t ON t.id = c.title_id
+      WHERE t.tmdb_id = ${tmdbId}
+      LIMIT 1
+    `);
+    row = rows.rows[0] as unknown as Cc0VideoRow | undefined;
+  } catch {
+    const rows = await db.execute(sql`
+      SELECT t.id AS "titleId", t.tmdb_id AS "tmdbId", t.title AS "title",
+             c.mux_playback_id AS "muxPlaybackId", NULL AS "source",
+             NULL AS "streamUrl", c.duration_sec AS "durationSec",
+             c.status AS "status"
+      FROM cc0_videos c
+      INNER JOIN titles t ON t.id = c.title_id
+      WHERE t.tmdb_id = ${tmdbId}
+      LIMIT 1
+    `);
+    row = rows.rows[0] as unknown as Cc0VideoRow | undefined;
+  }
+  // Playable if it has EITHER a Mux playback id OR a direct stream URL.
+  if (!row || (!row.muxPlaybackId && !row.streamUrl)) return null;
   return row;
 }

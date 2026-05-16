@@ -27,9 +27,38 @@ interface YouTubeProps {
   title: string;
 }
 
-export type WatchPlayerProps = MuxProps | YouTubeProps;
+interface DirectProps {
+  kind: "direct";
+  src: string;
+  title: string;
+  poster?: string | null;
+}
+
+export type WatchPlayerProps = MuxProps | YouTubeProps | DirectProps;
 
 export function WatchPlayer(props: WatchPlayerProps) {
+  if (props.kind === "direct") {
+    // Additive path (zero disruption): public-domain titles whose source is
+    // a direct Archive.org / Wikimedia file. The Mux + YouTube branches are
+    // untouched. Plain themed HTML5 <video> — no new dependency.
+    return (
+      <div className="relative w-full aspect-video rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black">
+        {/* biome-ignore lint/a11y/useMediaCaption: public-domain source ships no caption track */}
+        <video
+          className="absolute inset-0 w-full h-full"
+          src={props.src}
+          poster={props.poster ?? undefined}
+          controls
+          playsInline
+          preload="metadata"
+          style={{ accentColor: "#3DD3E8" }}
+        >
+          Your browser cannot play this video.
+        </video>
+      </div>
+    );
+  }
+
   if (props.kind === "mux") {
     return (
       <div className="relative w-full aspect-video rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black">

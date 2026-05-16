@@ -92,7 +92,9 @@ async function WatchSurface({ params }: PageProps) {
         </Link>
       </div>
 
-      {cc0 ? (
+      {cc0?.streamUrl && cc0.source !== "mux" ? (
+        <WatchPlayer kind="direct" src={cc0.streamUrl} title={title.title} poster={posterUrl} />
+      ) : cc0?.muxPlaybackId ? (
         <WatchPlayer
           kind="mux"
           playbackId={cc0.muxPlaybackId}
@@ -105,14 +107,19 @@ async function WatchSurface({ params }: PageProps) {
         <div className="w-full aspect-video rounded-2xl ring-1 ring-white/10 bg-black/40 flex items-center justify-center text-center px-6">
           <p className="text-sm text-[var(--color-ink-2)] max-w-prose">
             No stream or trailer is available for this title yet. Public-domain films in
-            Lumen&apos;s CC0 catalog play here in full.
+            Lumen&apos;s catalog play here in full.
           </p>
         </div>
       )}
 
       {cc0 && (
         <p className="mt-4 text-[10px] uppercase tracking-widest text-[var(--color-ink-3)]">
-          Public domain · streamed via Mux
+          Public domain ·{" "}
+          {cc0.source === "archive"
+            ? "streamed from the Internet Archive"
+            : cc0.source === "wikimedia"
+              ? "streamed from Wikimedia"
+              : "streamed via Mux"}
         </p>
       )}
     </section>
