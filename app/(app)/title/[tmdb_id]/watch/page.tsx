@@ -16,20 +16,26 @@ import { posterUrl } from "@/lib/img/poster";
 import { getCc0ByTmdbId } from "@/lib/mux/client";
 import { tmdb } from "@/lib/tmdb/client";
 import { getOrSyncTitle } from "@/lib/tmdb/sync";
+import {
+  type EpisodeProgress,
+  getCc0Episodes,
+  getWatchProgressForTitle,
+} from "@/lib/watch/episodes";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
 interface PageProps {
   params: Promise<{ tmdb_id: string }>;
+  searchParams: Promise<{ ep?: string }>;
 }
 
-export default function WatchPage({ params }: PageProps) {
+export default function WatchPage({ params, searchParams }: PageProps) {
   return (
     <main className="min-h-dvh pb-24">
       <AppChrome />
       <Suspense fallback={<WatchSkeleton />}>
-        <WatchSurface params={params} />
+        <WatchSurface params={params} searchParams={searchParams} />
       </Suspense>
     </main>
   );
@@ -43,8 +49,9 @@ function WatchSkeleton() {
   );
 }
 
-async function WatchSurface({ params }: PageProps) {
+async function WatchSurface({ params, searchParams }: PageProps) {
   const { tmdb_id } = await params;
+  const { ep } = await searchParams;
   const tmdbId = Number(tmdb_id);
   if (!Number.isFinite(tmdbId)) notFound();
 
@@ -60,6 +67,21 @@ async function WatchSurface({ params }: PageProps) {
 
   // CC0 first (themed Mux player); otherwise the YouTube trailer.
   const cc0 = await getCc0ByTmdbId(tmdbId);
+
+  // CC0 *series* — if a specific episode was requested (?ep=N) play that
+  // file; otherwise (movie / single file) episodeIndex 0 tracks the title.
+  const epNum = ep != null && /^\d+$/.test(ep) ? Number(ep) : null;
+  const episodes = cc0 ? await getCc0Episodes(tmdbId).catch(() => []) : [];
+  const activeEpisode =
+    epNum != null ? (episodes.find((e) => e.episodeIndex === epNum) ?? null) : null;
+  const trackedIndex = activeEpisode ? activeEpisode.episodeIndex : 0;
+
+  // Resume position for the stream we're about to play.
+  const progressMap: Record<number, EpisodeProgress> = cc0
+    ? await getWatchProgressForTitle(profileId, tmdbId).catch(() => ({}))
+    : {};
+  const resumeAt = progressMap[trackedIndex]?.positionSec ?? 0;
+  const progressCtx = cc0 ? { tmdbId, episodeIndex: trackedIndex, startAt: resumeAt } : undefined;
 
   let trailerKey: string | null = null;
   if (!cc0) {
@@ -84,6 +106,11 @@ async function WatchSurface({ params }: PageProps) {
           >
             {title.title}
           </h1>
+          {activeEpisode && (
+            <p className="mt-1 text-sm text-[var(--color-ink-2)]">
+              E{activeEpisode.episodeIndex} · {activeEpisode.label}
+            </p>
+          )}
         </div>
         <Link
           href={`/title/${tmdbId}`}
@@ -93,14 +120,29 @@ async function WatchSurface({ params }: PageProps) {
         </Link>
       </div>
 
-      {cc0?.streamUrl && cc0.source !== "mux" ? (
-        <WatchPlayer kind="direct" src={cc0.streamUrl} title={title.title} poster={poster} />
+      {activeEpisode ? (
+        <WatchPlayer
+          kind="direct"
+          src={activeEpisode.streamUrl}
+          title={title.title}
+          poster={poster}
+          progress={progressCtx}
+        />
+      ) : cc0?.streamUrl && cc0.source !== "mux" ? (
+        <WatchPlayer
+          kind="direct"
+          src={cc0.streamUrl}
+          title={title.title}
+          poster={poster}
+          progress={progressCtx}
+        />
       ) : cc0?.muxPlaybackId ? (
         <WatchPlayer
           kind="mux"
           playbackId={cc0.muxPlaybackId}
           title={title.title}
           poster={poster}
+          progress={progressCtx}
         />
       ) : trailerKey ? (
         <WatchPlayer kind="youtube" youtubeKey={trailerKey} title={title.title} />

@@ -13,6 +13,7 @@
 import { AppChrome } from "@/components/chrome/AppChrome";
 import { GlassCard } from "@/components/glass";
 import { JournalComposer } from "@/components/journal/JournalComposer";
+import { Cc0EpisodeList } from "@/components/title/Cc0EpisodeList";
 import { HorizontalScroller } from "@/components/title/HorizontalScroller";
 import { type SeasonSummaryVM, SeasonsBrowser } from "@/components/title/SeasonsBrowser";
 import { TitlePreviewCard } from "@/components/title/TitlePreviewCard";
@@ -25,6 +26,7 @@ import { backdropUrl as backdropSrc, posterUrl as posterSrc } from "@/lib/img/po
 import { getCc0ByTmdbId } from "@/lib/mux/client";
 import { type TmdbCastMember, type TmdbCrewMember, tmdb } from "@/lib/tmdb/client";
 import { getOrSyncTitle } from "@/lib/tmdb/sync";
+import { getCc0Episodes, getWatchProgressForTitle } from "@/lib/watch/episodes";
 import { isInWatchlist } from "@/lib/watchlist/service";
 import Image from "next/image";
 import Link from "next/link";
@@ -81,6 +83,14 @@ async function TitleDetail({ params }: PageProps) {
   const trailer = tmdb.pickTrailer(fresh?.videos?.results);
   const cc0 = await getCc0ByTmdbId(tmdbId).catch(() => null);
   const cc0Available = Boolean(cc0);
+
+  // CC0 *series* — multiple playable Archive files. When present we show a
+  // real episode picker (with resume/✓ state) instead of one "Watch now".
+  const cc0Episodes = cc0Available ? await getCc0Episodes(tmdbId).catch(() => []) : [];
+  const hasCc0Series = cc0Episodes.length > 0;
+  const watchProgress = hasCc0Series
+    ? await getWatchProgressForTitle(activeProfileId, tmdbId).catch(() => ({}))
+    : {};
   const cast = (fresh?.credits?.cast ?? []).slice(0, 12);
   const crew = extractHeadlineCrew(fresh?.credits?.crew ?? []);
 
@@ -212,8 +222,14 @@ async function TitleDetail({ params }: PageProps) {
         </GlassCard>
       </section>
 
-      {/* TV — Prime-style seasons & episodes (only for series). */}
-      {isTv && tvSeasons.length > 0 && <SeasonsBrowser tvId={tmdbId} seasons={tvSeasons} />}
+      {/* CC0 *series* — playable episode picker (resume / ✓ watched).
+          Takes precedence over the TMDB SeasonsBrowser since these
+          episodes are the ones actually streamable for free. */}
+      {hasCc0Series ? (
+        <Cc0EpisodeList tmdbId={tmdbId} episodes={cc0Episodes} progress={watchProgress} />
+      ) : (
+        isTv && tvSeasons.length > 0 && <SeasonsBrowser tvId={tmdbId} seasons={tvSeasons} />
+      )}
 
       {/* Why this, for you — Pillar 2 (AI Taste). Streams independently so
        * the rest of the page paints without waiting on Gemini. */}
@@ -230,7 +246,7 @@ async function TitleDetail({ params }: PageProps) {
       {/* "Watch now" — ONLY when the title is actually playable (CC0 full
        * film via the themed player). The trailer below is always shown when
        * available, independent of this. */}
-      {cc0Available && (
+      {cc0Available && !hasCc0Series && (
         <section className="mx-auto max-w-5xl px-6 md:px-10 py-6">
           <Link
             href={`/title/${tmdbId}/watch`}

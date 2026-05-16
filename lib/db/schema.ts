@@ -153,6 +153,69 @@ export const cc0Videos = pgTable("cc0_videos", {
   status: varchar("status", { length: 32 }),
 });
 
+/**
+ * Per-episode streams for CC0 *series* (one Archive.org item → many video
+ * files). Additive: single-file CC0 movies keep using only `cc0_videos`.
+ * A series keeps its `cc0_videos` row (points at episode 1, so existing
+ * "is this title CC0?" detection and the movie path are unchanged) AND
+ * gets one `cc0_episodes` row per playable file.
+ */
+export const cc0Episodes = pgTable(
+  "cc0_episodes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    titleId: uuid("title_id")
+      .notNull()
+      .references(() => titles.id, { onDelete: "cascade" }),
+    /** 1-based playback order (natural filename sort). */
+    episodeIndex: integer("episode_index").notNull(),
+    /** Human label, e.g. "Episode 1 — The Mad Scientist". */
+    label: text("label").notNull(),
+    /** 'archive' | 'wikimedia' — mirrors cc0_videos.source. */
+    source: varchar("source", { length: 16 }).default("archive").notNull(),
+    streamUrl: text("stream_url").notNull(),
+    durationSec: integer("duration_sec"),
+    status: varchar("status", { length: 32 }).default("ready").notNull(),
+  },
+  (t) => ({
+    titleEpisodeUnique: uniqueIndex("cc0_episodes_title_episode_unique").on(
+      t.titleId,
+      t.episodeIndex,
+    ),
+  }),
+);
+
+/**
+ * Resume / completion history per profile. `episode_index = 0` means the
+ * whole title (a single-file movie); 1-based for series episodes. Powers
+ * the "✓ completed / ◐ resume" episode-button states and resume-at-position.
+ */
+export const watchProgress = pgTable(
+  "watch_progress",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    titleId: uuid("title_id")
+      .notNull()
+      .references(() => titles.id, { onDelete: "cascade" }),
+    episodeIndex: integer("episode_index").notNull().default(0),
+    positionSec: integer("position_sec").default(0).notNull(),
+    durationSec: integer("duration_sec"),
+    completed: boolean("completed").default(false).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    profileTitleEpUnique: uniqueIndex("watch_progress_profile_title_ep_unique").on(
+      t.profileId,
+      t.titleId,
+      t.episodeIndex,
+    ),
+    profileIdx: index("watch_progress_profile_idx").on(t.profileId),
+  }),
+);
+
 // ---------- Lumen-native: accounts → profiles (Netflix-style) ----------
 
 export const accounts = pgTable(
@@ -348,6 +411,8 @@ export type Rating = typeof ratings.$inferSelect;
 export type JournalEntry = typeof journalEntries.$inferSelect;
 export type WhyExplanation = typeof whyExplanations.$inferSelect;
 export type RecapState = typeof recapStates.$inferSelect;
+export type Cc0Episode = typeof cc0Episodes.$inferSelect;
+export type WatchProgress = typeof watchProgress.$inferSelect;
 
 // Helper: SQL to ensure pgvector extension exists — emitted by the bootstrap migration
 export const ENSURE_PGVECTOR = sql`CREATE EXTENSION IF NOT EXISTS vector`;
