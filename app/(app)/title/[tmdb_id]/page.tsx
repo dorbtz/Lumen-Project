@@ -19,8 +19,8 @@ import { WhyCard, WhyCardSkeleton } from "@/components/title/WhyCard";
 import { WatchlistButton } from "@/components/watchlist/WatchlistButton";
 import { getActiveProfileId } from "@/lib/auth/active-profile";
 import { getSimilarTitlesByEmbedding, getSimilarTitlesByGenre } from "@/lib/db/queries";
-import { getCc0ByTmdbId } from "@/lib/mux/client";
 import type { Title } from "@/lib/db/schema";
+import { getCc0ByTmdbId } from "@/lib/mux/client";
 import { type TmdbCastMember, type TmdbCrewMember, tmdb } from "@/lib/tmdb/client";
 import { getOrSyncTitle } from "@/lib/tmdb/sync";
 import { isInWatchlist } from "@/lib/watchlist/service";
@@ -207,9 +207,10 @@ async function TitleDetail({ params }: PageProps) {
        * active profile (we'd have no profile_id to attach the entry to). */}
       {row?.id && activeProfileId && <JournalComposer titleUuid={row.id} />}
 
-      {/* Watch — CC0 full film (themed Mux player) or trailer fallback. The
-       * /watch route resolves which to show; this is the entry CTA. */}
-      {(cc0Available || trailer) && (
+      {/* "Watch now" — ONLY when the title is actually playable (CC0 full
+       * film via the themed player). The trailer below is always shown when
+       * available, independent of this. */}
+      {cc0Available && (
         <section className="mx-auto max-w-5xl px-6 md:px-10 py-6">
           <Link
             href={`/title/${tmdbId}/watch`}
@@ -225,13 +226,14 @@ async function TitleDetail({ params }: PageProps) {
               <title>Play</title>
               <path d="M8 5v14l11-7z" />
             </svg>
-            {cc0Available ? "Watch full film" : "Watch trailer"}
+            Watch now
           </Link>
         </section>
       )}
 
-      {/* Trailer inline preview (kept for non-CC0 titles) */}
-      {trailer && !cc0Available && (
+      {/* Trailer inline preview — always shown when a trailer exists, for
+       * both watchable and non-watchable titles. */}
+      {trailer && (
         <section className="mx-auto max-w-5xl px-6 md:px-10 py-8">
           <h2 className="text-xs tracking-[0.22em] uppercase text-[var(--color-accent)] mb-3">
             Trailer

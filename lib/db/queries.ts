@@ -24,6 +24,16 @@ export async function getPopularTitles(limit = 20): Promise<Title[]> {
     .limit(limit);
 }
 
+/** Popular titles of a given type — feeds the Home "Movies" / "Series" rows. */
+export async function getPopularByType(type: "movie" | "tv", limit = 20): Promise<Title[]> {
+  return db
+    .select()
+    .from(titles)
+    .where(and(isNotNull(titles.posterPath), eq(titles.type, type)))
+    .orderBy(desc(titles.popularity))
+    .limit(limit);
+}
+
 /** Trending row — same source for now (real "trending" is TMDB-fetched server-side at home). */
 export async function getTrendingTitles(limit = 20): Promise<Title[]> {
   return db

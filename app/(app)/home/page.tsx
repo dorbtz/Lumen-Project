@@ -19,6 +19,7 @@ import { isOnboardingSnoozed } from "@/lib/auth/onboarding-snooze";
 import { profileBelongsToCurrentAccount } from "@/lib/auth/profile-queries";
 import {
   getHeroCandidates,
+  getPopularByType,
   getPopularTitles,
   getProfileById,
   getProfileTasteCentroid,
@@ -66,13 +67,16 @@ async function AppHome() {
   }
 
   // Run independent queries in parallel.
-  const [heroRows, tonightRow, trendingTmdb, taste, watchableRows] = await Promise.all([
-    getHeroCandidates(5),
-    getTonightPick(),
-    fetchTrendingFromTmdb(),
-    getProfileTasteCentroid(profileId),
-    getWatchableTitles(20),
-  ]);
+  const [heroRows, tonightRow, trendingTmdb, taste, watchableRows, movieRows, seriesRows] =
+    await Promise.all([
+      getHeroCandidates(5),
+      getTonightPick(),
+      fetchTrendingFromTmdb(),
+      getProfileTasteCentroid(profileId),
+      getWatchableTitles(20),
+      getPopularByType("movie", 20),
+      getPopularByType("tv", 20),
+    ]);
 
   // Cross-row de-dupe (plan WS3): a title shows in at most one row, in the
   // precedence Hero → Tonight → Trending → Taste → Stream now. Exclude
@@ -97,6 +101,8 @@ async function AppHome() {
   const trendingRow = dedupe(trendingTmdb);
   const closestRow = dedupe(closest.map(toPreview));
   const watchableRow = dedupe(watchableRows.map((t) => ({ ...toPreview(t), watchable: true })));
+  const moviesRow = dedupe(movieRows.map(toPreview));
+  const seriesRow = dedupe(seriesRows.map(toPreview));
 
   const heroItems: HeroItem[] = heroRows.map((t) => ({
     tmdbId: t.tmdbId,
@@ -168,6 +174,12 @@ async function AppHome() {
         hint={taste ? "From your seed ratings" : "Popular on Lumen"}
         items={closestRow}
       />
+
+      {moviesRow.length > 0 && <TitleRow label="Movies" hint="Popular films" items={moviesRow} />}
+
+      {seriesRow.length > 0 && (
+        <TitleRow label="TV series" hint="Popular shows" items={seriesRow} />
+      )}
 
       {watchableRow.length > 0 && (
         <TitleRow

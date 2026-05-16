@@ -16,7 +16,7 @@ import { db } from "@/lib/db/client";
 import { getTitleEmbedding } from "@/lib/db/queries";
 import { journalEntries, ratings, titles } from "@/lib/db/schema";
 import { computeTasteCentroid, toVectorLiteral } from "@/lib/profile/centroid";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 export interface CreateJournalInput {
   profileId: string;
@@ -208,6 +208,27 @@ export async function listJournalEntries(
       releaseYear: r.titleYear,
     },
   }));
+}
+
+/**
+ * Delete specific journal entries for a profile. Scoped by profileId so a
+ * profile can only ever delete its own entries. Returns the number removed.
+ * Ratings are intentionally left intact (a rating is separate from the
+ * reflection — mirrors the taste-reset policy that keeps the journal).
+ */
+export async function deleteJournalEntries(profileId: string, ids: string[]): Promise<number> {
+  const clean = ids.filter((s) => typeof s === "string" && s.length > 0);
+  if (clean.length === 0) return 0;
+  const res = await db
+    .delete(journalEntries)
+    .where(and(eq(journalEntries.profileId, profileId), inArray(journalEntries.id, clean)));
+  return (res as { rowCount?: number }).rowCount ?? clean.length;
+}
+
+/** Delete ALL journal entries for a profile. Returns the number removed. */
+export async function deleteAllJournalEntries(profileId: string): Promise<number> {
+  const res = await db.delete(journalEntries).where(eq(journalEntries.profileId, profileId));
+  return (res as { rowCount?: number }).rowCount ?? 0;
 }
 
 /** Cheap token frequency over the last ~10 reflections — enough signal for
