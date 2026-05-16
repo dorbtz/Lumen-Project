@@ -14,7 +14,8 @@ export type LumenEvent =
   | "logged_journal"
   | "viewed_recap"
   | "mood_search"
-  | "timebox_search";
+  | "timebox_search"
+  | "search_catalog";
 
 export function capture(event: LumenEvent, props?: Record<string, unknown>): void {
   try {

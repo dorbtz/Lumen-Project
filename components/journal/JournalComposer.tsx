@@ -14,6 +14,7 @@
 
 import { saveJournalEntryAction } from "@/app/(app)/journal/actions";
 import { GlassCard } from "@/components/glass";
+import { StarRating } from "@/components/ui/StarRating";
 import { capture } from "@/lib/analytics/events";
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
@@ -41,6 +42,7 @@ const MOOD_CHOICES: MoodChoice[] = [
 export function JournalComposer({ titleUuid }: JournalComposerProps) {
   const [reflection, setReflection] = useState("");
   const [moodId, setMoodId] = useState<string>("balanced");
+  const [stars, setStars] = useState(0); // 0 = unrated (optional)
   const [savedQuestion, setSavedQuestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -60,14 +62,19 @@ export function JournalComposer({ titleUuid }: JournalComposerProps) {
         reflection: trimmed,
         valence: chosen.valence,
         arousal: chosen.arousal,
+        ...(stars >= 1 && stars <= 5 ? { journalStars: stars } : {}),
       });
       if (!result.ok) {
         setError(result.error ?? "Could not save the entry");
         return;
       }
-      capture("logged_journal", { hasReflection: trimmed.length > 0 });
+      capture("logged_journal", {
+        hasReflection: trimmed.length > 0,
+        rated: stars >= 1,
+      });
       setSavedQuestion(result.generatedQuestion ?? null);
       setReflection("");
+      setStars(0);
     });
   };
 
@@ -164,6 +171,32 @@ export function JournalComposer({ titleUuid }: JournalComposerProps) {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-ink-2)] mb-2">
+              Rate it{" "}
+              <span className="normal-case tracking-normal text-[var(--color-ink-3)]">
+                — optional, sharpens your taste profile
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <StarRating
+                value={stars}
+                onChange={(s) => setStars(s)}
+                ariaLabel="Rate this film"
+                sizeClass="text-2xl"
+              />
+              {stars > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setStars(0)}
+                  className="text-[11px] uppercase tracking-widest text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] transition-colors"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           </div>
 

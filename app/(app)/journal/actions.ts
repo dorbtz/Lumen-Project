@@ -14,6 +14,8 @@ export interface SaveJournalEntryArgs {
   reflection: string;
   valence: number;
   arousal: number;
+  /** Optional 1–5 star rating — feeds the taste model (plan WS9). */
+  journalStars?: number;
 }
 
 export interface SaveJournalEntryResult {
@@ -38,6 +40,7 @@ export async function saveJournalEntryAction(
       reflection: args.reflection,
       valence: args.valence,
       arousal: args.arousal,
+      journalStars: args.journalStars,
     });
     return { ok: true, id: result.id, generatedQuestion: result.generatedQuestion };
   } catch (err) {

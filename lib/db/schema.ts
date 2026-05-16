@@ -64,6 +64,9 @@ export const titles = pgTable(
     voteCount: integer("vote_count").default(0).notNull(),
     keywords: text("keywords").array(),
     genres: text("genres").array(),
+    /** TMDB belongs_to_collection — powers franchise search ("marvel" → MCU). */
+    collectionId: integer("collection_id"),
+    collectionName: text("collection_name"),
     /** 64d: valence/arousal + theme dims (SPEC §8 Mood-axis tagging) */
     moodVector: vector("mood_vector", { dimensions: 64 }),
     /** 384d: nomic-embed-text-v1.5 projected (SPEC §8) */
@@ -75,6 +78,7 @@ export const titles = pgTable(
     tmdbIdUnique: uniqueIndex("titles_tmdb_id_unique").on(t.tmdbId),
     popularityIdx: index("titles_popularity_idx").on(sql`${t.popularity} DESC`),
     typeIdx: index("titles_type_idx").on(t.type),
+    collectionIdx: index("titles_collection_idx").on(t.collectionId),
   }),
 );
 

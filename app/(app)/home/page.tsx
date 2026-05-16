@@ -11,7 +11,6 @@
  */
 
 import { AppChrome } from "@/components/chrome/AppChrome";
-import { MoodDial } from "@/components/mood/MoodDial";
 import { HeroBillboard, type HeroItem } from "@/components/title/HeroBillboard";
 import { TitlePreviewCard, type TitlePreviewData } from "@/components/title/TitlePreviewCard";
 import { TitleRow } from "@/components/title/TitleRow";
@@ -25,9 +24,11 @@ import {
   getProfileTasteCentroid,
   getTitlesByTasteCentroid,
   getTonightPick,
+  getWatchableTitles,
 } from "@/lib/db/queries";
 import type { Title } from "@/lib/db/schema";
 import { tmdb } from "@/lib/tmdb/client";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -65,14 +66,37 @@ async function AppHome() {
   }
 
   // Run independent queries in parallel.
-  const [heroRows, tonightRow, trendingTmdb, taste] = await Promise.all([
+  const [heroRows, tonightRow, trendingTmdb, taste, watchableRows] = await Promise.all([
     getHeroCandidates(5),
     getTonightPick(),
     fetchTrendingFromTmdb(),
     getProfileTasteCentroid(profileId),
+    getWatchableTitles(20),
   ]);
 
-  const closest = await getTitlesByTasteCentroid(taste, 20);
+  // Cross-row de-dupe (plan WS3): a title shows in at most one row, in the
+  // precedence Hero → Tonight → Trending → Taste → Stream now. Exclude
+  // hero/tonight from the taste query at source via the existing excludeIds.
+  const seenTmdb = new Set<number>();
+  for (const t of heroRows) seenTmdb.add(t.tmdbId);
+  if (tonightRow) seenTmdb.add(tonightRow.tmdbId);
+  const heroExcludeUuids = [...heroRows.map((t) => t.id), ...(tonightRow ? [tonightRow.id] : [])];
+
+  const closest = await getTitlesByTasteCentroid(taste, 24, heroExcludeUuids);
+
+  const dedupe = (rows: TitlePreviewData[]): TitlePreviewData[] => {
+    const out: TitlePreviewData[] = [];
+    for (const r of rows) {
+      if (seenTmdb.has(r.tmdbId)) continue;
+      seenTmdb.add(r.tmdbId);
+      out.push(r);
+    }
+    return out;
+  };
+
+  const trendingRow = dedupe(trendingTmdb);
+  const closestRow = dedupe(closest.map(toPreview));
+  const watchableRow = dedupe(watchableRows.map((t) => ({ ...toPreview(t), watchable: true })));
 
   const heroItems: HeroItem[] = heroRows.map((t) => ({
     tmdbId: t.tmdbId,
@@ -108,29 +132,50 @@ async function AppHome() {
         </section>
       )}
 
-      {/* A6 — Home Mood Dial (SPEC_COMPLETION §1 A6). Pure composition of the
-          existing client component; no new logic. */}
-      <section className="px-6 md:px-10 py-10">
-        <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-lg md:text-xl tracking-tight font-[var(--font-display)]">
-            What do you want to feel tonight?
-          </h2>
-          <p className="text-[11px] uppercase tracking-widest text-[var(--color-ink-3)]">
-            Drag the orb
-          </p>
-        </div>
-        <div className="pt-6">
-          <MoodDial />
-        </div>
+      {/* Mood discovery lives at /discover/mood (plan WS4 — removed the
+          duplicate inline dial). A glass CTA tile points there instead. */}
+      <section className="px-6 md:px-10 py-8">
+        <Link
+          href="/discover/mood"
+          className="group block glass-regular glass-specular rounded-3xl ring-1 ring-white/5 px-6 py-7 md:px-9 md:py-8 transition-colors hover:ring-white/15"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-accent)]">
+                Discover by feeling
+              </p>
+              <h2 className="mt-2 text-xl md:text-2xl tracking-tight font-[var(--font-display)]">
+                What do you want to feel tonight?
+              </h2>
+              <p className="mt-1 text-sm text-[var(--color-ink-2)]">
+                Drag the mood orb — results stream as you move.
+              </p>
+            </div>
+            <span
+              aria-hidden
+              className="text-2xl text-[var(--color-ink-3)] transition-transform group-hover:translate-x-1 group-hover:text-[var(--color-ink-1)]"
+            >
+              →
+            </span>
+          </div>
+        </Link>
       </section>
 
-      <TitleRow label="Trending this week" hint="From TMDB" items={trendingTmdb} />
+      <TitleRow label="Trending this week" hint="From TMDB" items={trendingRow} />
 
       <TitleRow
         label={taste ? "Closest to your taste" : "Most loved"}
         hint={taste ? "From your seed ratings" : "Popular on Lumen"}
-        items={closest.map(toPreview)}
+        items={closestRow}
       />
+
+      {watchableRow.length > 0 && (
+        <TitleRow
+          label="Stream now — free"
+          hint="Public-domain films, playable in Lumen"
+          items={watchableRow}
+        />
+      )}
     </main>
   );
 }

@@ -25,6 +25,7 @@ export interface TmdbMovie {
   vote_count: number;
   genres?: { id: number; name: string }[];
   genre_ids?: number[];
+  belongs_to_collection?: { id: number; name: string } | null;
   keywords?: { keywords?: { id: number; name: string }[] };
   videos?: { results: TmdbVideo[] };
   credits?: TmdbCredits;

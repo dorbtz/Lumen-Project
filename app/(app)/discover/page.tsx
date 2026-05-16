@@ -58,7 +58,7 @@ async function DiscoverHub() {
         </p>
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 grid gap-4 sm:grid-cols-2">
+      <section className="mx-auto max-w-5xl px-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <HubTile
           href="/discover/mood"
           eyebrow="By feeling"
@@ -70,6 +70,12 @@ async function DiscoverHub() {
           eyebrow="By time"
           title="Time-Box"
           blurb="Set a runtime budget; we rank what fits your taste."
+        />
+        <HubTile
+          href="/discover/watch"
+          eyebrow="Stream free"
+          title="Watch now"
+          blurb="Public-domain classics, playable right here in Lumen."
         />
       </section>
 

@@ -89,6 +89,8 @@ async function upsertTitleFromTmdb(full: TmdbMovie): Promise<void> {
       voteCount: full.vote_count ?? 0,
       keywords: full.keywords?.keywords?.map((k) => k.name) ?? [],
       genres: full.genres?.map((g) => g.name) ?? [],
+      collectionId: full.belongs_to_collection?.id ?? null,
+      collectionName: full.belongs_to_collection?.name ?? null,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({

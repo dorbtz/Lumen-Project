@@ -11,6 +11,7 @@
  */
 
 import { skipOnboardingAction, submitOnboardingAction } from "@/app/(app)/onboarding/actions";
+import { StarRating } from "@/components/ui/StarRating";
 import { capture } from "@/lib/analytics/events";
 import { MIN_RATINGS_FOR_CENTROID } from "@/lib/onboarding/seed-films";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -358,34 +359,7 @@ function Card({
       </div>
 
       <div className="px-6 py-8 mt-auto">
-        <div
-          className="flex items-center gap-2"
-          role="radiogroup"
-          aria-label={`Rate ${card.title}`}
-        >
-          {[1, 2, 3, 4, 5].map((s) => (
-            /* Buttons act as a custom radio group (cleaner styling than native
-               inputs for the star UI). The radiogroup wrapper above gives screen
-               readers context. */
-            <button
-              key={s}
-              // biome-ignore lint/a11y/useSemanticElements: custom rating control by design
-              type="button"
-              role="radio"
-              aria-checked={currentStars >= s}
-              aria-label={`${s} star${s > 1 ? "s" : ""}`}
-              onClick={() => onRate(s as StarValue)}
-              className="text-3xl px-1 py-0.5 hover:scale-110 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] rounded"
-            >
-              <span
-                aria-hidden
-                style={{ color: currentStars >= s ? "var(--color-accent)" : "var(--color-ink-3)" }}
-              >
-                ★
-              </span>
-            </button>
-          ))}
-        </div>
+        <StarRating value={currentStars} onChange={onRate} ariaLabel={`Rate ${card.title}`} />
         <button
           type="button"
           onClick={onSkip}

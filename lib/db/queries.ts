@@ -9,9 +9,10 @@
 
 import { moodQueryLiteral } from "@/lib/discover/mood-vector";
 import { runtimeCap, runtimeFloor } from "@/lib/discover/timebox-rule";
+import { weekSeed, weeklyIndex } from "@/lib/discover/week-seed";
 import { and, desc, eq, ilike, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "./client";
-import { type Title, profiles, titles } from "./schema";
+import { type Title, cc0Videos, profiles, titles } from "./schema";
 
 /** Most popular titles overall — fallback row when no taste centroid exists. */
 export async function getPopularTitles(limit = 20): Promise<Title[]> {
@@ -33,7 +34,11 @@ export async function getTrendingTitles(limit = 20): Promise<Title[]> {
     .limit(limit);
 }
 
-/** One random "Tonight" pick from the top-N most popular. */
+/**
+ * The "Featured tonight" pick (plan WS7). Deterministic per ISO week — the
+ * same film holds all week, then rotates — instead of re-rolling on every
+ * request. Drawn from the top-100 most popular so it stays a strong pick.
+ */
 export async function getTonightPick(): Promise<Title | null> {
   const pool = await db
     .select()
@@ -44,19 +49,44 @@ export async function getTonightPick(): Promise<Title | null> {
     .orderBy(desc(titles.popularity))
     .limit(100);
   if (pool.length === 0) return null;
-  return pool[Math.floor(Math.random() * pool.length)] ?? null;
+  return pool[weeklyIndex(pool.length)] ?? null;
 }
 
-/** Hero billboard candidates — top titles WITH a backdrop image. */
+/**
+ * Hero billboard candidates — top titles WITH a backdrop image. Rotates the
+ * window weekly (plan WS7): pull a deep pool then take a `limit`-sized slice
+ * offset by the week seed, so the billboard set refreshes each week while
+ * staying within the most popular tier.
+ */
 export async function getHeroCandidates(limit = 6): Promise<Title[]> {
-  return db
+  const POOL = 60;
+  const pool = await db
     .select()
     .from(titles)
     .where(
       and(isNotNull(titles.backdropPath), isNotNull(titles.posterPath), eq(titles.type, "movie")),
     )
     .orderBy(desc(titles.popularity))
+    .limit(POOL);
+  if (pool.length <= limit) return pool;
+  const start = weekSeed() % pool.length;
+  return Array.from({ length: limit }, (_, i) => pool[(start + i) % pool.length] as Title);
+}
+
+/**
+ * Watchable titles (plan WS5) — films with a ready Mux CC0 asset, so the
+ * "Stream now — free" row and the discover hub can surface them. Ordered by
+ * popularity for a stable, sensible row.
+ */
+export async function getWatchableTitles(limit = 20): Promise<Title[]> {
+  const rows = await db
+    .select()
+    .from(titles)
+    .innerJoin(cc0Videos, eq(cc0Videos.titleId, titles.id))
+    .where(and(isNotNull(titles.posterPath), eq(cc0Videos.status, "ready")))
+    .orderBy(desc(titles.popularity))
     .limit(limit);
+  return rows.map((r) => r.titles);
 }
 
 /** Lookup a single title by TMDB id. Caller decides whether to fetch from TMDB on miss. */
@@ -96,6 +126,11 @@ export async function getTitlesByMood(
   limit = 24,
 ): Promise<Title[]> {
   const queryLiteral = moodQueryLiteral(valence, arousal);
+  // Decoupled from the embedding gate (plan WS1): rank the FULL catalog —
+  // titles with a mood_vector sort first by mood distance, the rest fill in
+  // by popularity. `(mood_vector IS NULL)` groups embedded rows ahead of
+  // non-embedded ones regardless of how pgvector treats a NULL operand, so
+  // discovery no longer collapses to the ~few-hundred embedded titles.
   const rows = await db.execute(sql`
     SELECT id, tmdb_id AS "tmdbId", type, title, original_title AS "originalTitle",
            release_year AS "releaseYear", runtime_min AS "runtimeMin", overview, tagline,
@@ -106,9 +141,9 @@ export async function getTitlesByMood(
            NULL::vector AS "moodVector", NULL::vector AS "embedding",
            created_at AS "createdAt", updated_at AS "updatedAt"
     FROM titles
-    WHERE mood_vector IS NOT NULL
-      AND poster_path IS NOT NULL
-    ORDER BY mood_vector <-> ${queryLiteral}::vector(64)
+    WHERE poster_path IS NOT NULL
+      AND type = 'movie'
+    ORDER BY (mood_vector IS NULL), mood_vector <-> ${queryLiteral}::vector(64), popularity DESC
     LIMIT ${limit}
   `);
   return rows.rows as unknown as Title[];
@@ -140,10 +175,10 @@ export async function getTitlesByTasteCentroid(
            NULL::vector AS "moodVector", NULL::vector AS "embedding",
            created_at AS "createdAt", updated_at AS "updatedAt"
     FROM titles
-    WHERE embedding IS NOT NULL
-      AND poster_path IS NOT NULL
+    WHERE poster_path IS NOT NULL
+      AND type = 'movie'
       ${excludeClause}
-    ORDER BY embedding <=> ${centroidLiteral}::vector
+    ORDER BY (embedding IS NULL), embedding <=> ${centroidLiteral}::vector, popularity DESC
     LIMIT ${limit}
   `);
   return rows.rows as unknown as Title[];
@@ -176,37 +211,27 @@ export async function getTitlesByTimebox(
   const hasCentroid = !!centroid && centroid.length === 384;
   const centroidLiteral = hasCentroid ? `[${centroid?.join(",")}]` : null;
 
-  // Band the runtime so the budget acts like a *target length*, not just a
-  // ceiling — otherwise short popular films top every preset. `min` is 0 for
-  // the relaxation pass so we never show an empty/sparse grid on edge budgets
-  // or a thin catalog.
-  const run = async (min: number): Promise<Title[]> => {
-    const order =
-      hasCentroid && centroidLiteral
-        ? sql`ORDER BY embedding <=> ${centroidLiteral}::vector, popularity DESC`
-        : sql`ORDER BY popularity DESC`;
-    const embeddingFilter =
-      hasCentroid && centroidLiteral ? sql`AND embedding IS NOT NULL` : sql``;
-    const rows = await db.execute(sql`
-      SELECT ${TIMEBOX_COLS}
-      FROM titles
-      WHERE poster_path IS NOT NULL
-        AND runtime_min IS NOT NULL
-        AND runtime_min >= ${min}
-        AND runtime_min <= ${cap}
-        ${embeddingFilter}
-      ${order}
-      LIMIT ${limit}
-    `);
-    return rows.rows as unknown as Title[];
-  };
-
-  const banded = await run(floor);
-  // Keep the band if it returns a usefully full grid; otherwise relax the
-  // floor so a sparse band degrades gracefully to the old ceiling behavior.
-  const minUseful = Math.min(limit, 8);
-  if (banded.length >= minUseful) return banded;
-  return run(0);
+  // STRICT band (plan WS2): the budget is a *target length*, not a ceiling.
+  // No floor→0 relaxation — a thin band legitimately returns fewer cards
+  // rather than re-surfacing wrong-length films. The decoupled ranking
+  // (embedded titles by taste distance, then everyone else by popularity)
+  // over the full catalog keeps the band well-populated in practice.
+  const order =
+    hasCentroid && centroidLiteral
+      ? sql`ORDER BY (embedding IS NULL), embedding <=> ${centroidLiteral}::vector, popularity DESC`
+      : sql`ORDER BY popularity DESC`;
+  const rows = await db.execute(sql`
+    SELECT ${TIMEBOX_COLS}
+    FROM titles
+    WHERE poster_path IS NOT NULL
+      AND type = 'movie'
+      AND runtime_min IS NOT NULL
+      AND runtime_min >= ${floor}
+      AND runtime_min <= ${cap}
+    ${order}
+    LIMIT ${limit}
+  `);
+  return rows.rows as unknown as Title[];
 }
 
 /** Similar titles to a given title via pgvector. Falls back to popularity if no embedding. */

@@ -48,6 +48,8 @@ async function upsertTitle(m: TmdbMovie & { keywords?: { keywords?: { name: stri
     voteCount: full.vote_count ?? 0,
     keywords: full.keywords?.keywords?.map((k) => k.name) ?? [],
     genres: full.genres?.map((g) => g.name) ?? [],
+    collectionId: full.belongs_to_collection?.id ?? null,
+    collectionName: full.belongs_to_collection?.name ?? null,
     updatedAt: new Date(),
   };
 
@@ -72,6 +74,8 @@ async function upsertTitle(m: TmdbMovie & { keywords?: { keywords?: { name: stri
         voteCount: row.voteCount,
         keywords: row.keywords,
         genres: row.genres,
+        collectionId: row.collectionId,
+        collectionName: row.collectionName,
         updatedAt: sql`now()`,
       },
     });

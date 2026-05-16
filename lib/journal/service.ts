@@ -13,7 +13,9 @@
 import { generateEchoQuestion } from "@/lib/ai/echo";
 import { embedReflection } from "@/lib/ai/embeddings";
 import { db } from "@/lib/db/client";
-import { journalEntries, titles } from "@/lib/db/schema";
+import { getTitleEmbedding } from "@/lib/db/queries";
+import { journalEntries, ratings, titles } from "@/lib/db/schema";
+import { computeTasteCentroid, toVectorLiteral } from "@/lib/profile/centroid";
 import { desc, eq, sql } from "drizzle-orm";
 
 export interface CreateJournalInput {
@@ -23,6 +25,8 @@ export interface CreateJournalInput {
   /** -1..1 each — see MoodDial axes. */
   valence: number;
   arousal: number;
+  /** Optional 1–5 star rating — persisted + folded into the taste centroid. */
+  journalStars?: number;
 }
 
 export interface JournalEntryWithTitle {
@@ -77,7 +81,8 @@ export async function createJournalEntry(input: CreateJournalInput): Promise<{
     question = echo.question;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    const status = (err as { statusCode?: number; status?: number })?.statusCode ??
+    const status =
+      (err as { statusCode?: number; status?: number })?.statusCode ??
       (err as { status?: number })?.status;
     const isQuota = status === 429 || /quota|rate.?limit|exhaust/i.test(msg);
     if (isQuota) {
@@ -106,7 +111,65 @@ export async function createJournalEntry(input: CreateJournalInput): Promise<{
   const id = (rows.rows[0] as { id: string } | undefined)?.id;
   if (!id) throw new Error("[journal] insert returned no id");
 
+  // Optional star rating (plan WS9): persist it and fold ALL of the
+  // profile's ratings back into the taste centroid so journaling
+  // continuously sharpens recommendations (SPEC §3.1 #3). Non-fatal —
+  // a failure here must not lose the journal entry.
+  if (
+    typeof input.journalStars === "number" &&
+    input.journalStars >= 1 &&
+    input.journalStars <= 5
+  ) {
+    try {
+      await applyJournalRating(profileId, titleUuid, input.journalStars);
+    } catch (err) {
+      console.error("[journal] rating/centroid update failed", err);
+    }
+  }
+
   return { id, generatedQuestion: question };
+}
+
+/**
+ * Upsert a rating from the journal and recompute the profile's taste
+ * centroid from EVERY rating it has (onboarding + journal), mirroring the
+ * onboarding weighting (score/10 == stars/5). Never nulls an existing
+ * centroid: if no rated title has an embedding yet we simply leave the
+ * current centroid in place.
+ */
+async function applyJournalRating(
+  profileId: string,
+  titleUuid: string,
+  stars: number,
+): Promise<void> {
+  const score = stars * 2; // 1..5 → 2..10, same scale as onboarding
+  await db
+    .insert(ratings)
+    .values({ profileId, titleId: titleUuid, score, liked: stars >= 4 })
+    .onConflictDoUpdate({
+      target: [ratings.profileId, ratings.titleId],
+      set: { score, liked: stars >= 4, ratedAt: sql`now()` },
+    });
+
+  const rated = await db
+    .select({ titleId: ratings.titleId, score: ratings.score })
+    .from(ratings)
+    .where(eq(ratings.profileId, profileId));
+
+  const weighted: Array<{ vec: number[]; w: number }> = [];
+  for (const r of rated) {
+    const emb = await getTitleEmbedding(r.titleId);
+    if (!emb) continue;
+    weighted.push({ vec: emb, w: (r.score ?? 6) / 10 }); // 0.2..1.0
+  }
+
+  const centroid = computeTasteCentroid(weighted);
+  if (!centroid) return; // keep the existing centroid rather than wiping it
+  await db.execute(sql`
+    UPDATE profiles
+    SET taste_centroid = ${toVectorLiteral(centroid)}::vector(384)
+    WHERE id = ${profileId}
+  `);
 }
 
 /** Most recent entries (with title) for the /journal index. */
@@ -159,7 +222,87 @@ export async function getRecentReflectionThemes(profileId: string): Promise<stri
   if (rows.length === 0) return [];
 
   const STOP = new Set([
-    "the","and","that","with","this","from","have","were","what","when","they","there","about","into","over","just","very","like","also","than","then","them","some","such","more","most","only","even","still","much","many","much","each","other","another","because","while","since","being","really","quite","could","would","should","much","find","feel","felt","look","make","made","film","movie","scene","scenes","character","characters","story","plot","seems","seemed","makes","made","does","done","know","think","sense","kind","sort","every","didn't","wasn't","don't","didnt","wasnt","dont","i've","i'm","it's","that's",
+    "the",
+    "and",
+    "that",
+    "with",
+    "this",
+    "from",
+    "have",
+    "were",
+    "what",
+    "when",
+    "they",
+    "there",
+    "about",
+    "into",
+    "over",
+    "just",
+    "very",
+    "like",
+    "also",
+    "than",
+    "then",
+    "them",
+    "some",
+    "such",
+    "more",
+    "most",
+    "only",
+    "even",
+    "still",
+    "much",
+    "many",
+    "much",
+    "each",
+    "other",
+    "another",
+    "because",
+    "while",
+    "since",
+    "being",
+    "really",
+    "quite",
+    "could",
+    "would",
+    "should",
+    "much",
+    "find",
+    "feel",
+    "felt",
+    "look",
+    "make",
+    "made",
+    "film",
+    "movie",
+    "scene",
+    "scenes",
+    "character",
+    "characters",
+    "story",
+    "plot",
+    "seems",
+    "seemed",
+    "makes",
+    "made",
+    "does",
+    "done",
+    "know",
+    "think",
+    "sense",
+    "kind",
+    "sort",
+    "every",
+    "didn't",
+    "wasn't",
+    "don't",
+    "didnt",
+    "wasnt",
+    "dont",
+    "i've",
+    "i'm",
+    "it's",
+    "that's",
   ]);
   const counts = new Map<string, number>();
   for (const r of rows) {

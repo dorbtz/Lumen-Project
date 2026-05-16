@@ -19,6 +19,7 @@
     "seed:catalog": "tsx --env-file=.env.local scripts/seed-catalog.ts",
     "embed:titles": "tsx scripts/embed-titles.ts",
     "ingest:cc0": "tsx --env-file=.env.local scripts/ingest-cc0.ts",
+    "backfill:collections": "tsx --env-file=.env.local scripts/backfill-collections.ts",
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:e2e": "playwright test"

@@ -38,6 +38,8 @@ export interface TitlePreviewData {
   genres?: string[] | null;
   /** Optional pre-fetched YouTube key; if absent, hover shows static info only. */
   youtubeKey?: string | null;
+  /** True when a ready CC0 Mux asset exists — shows a "Free" play badge. */
+  watchable?: boolean;
 }
 
 export interface TitlePreviewCardProps {
@@ -142,6 +144,22 @@ export function TitlePreviewCard({
             <div className="absolute inset-0 bg-[var(--color-surface-2)] flex items-center justify-center text-[var(--color-ink-3)] text-xs">
               No poster
             </div>
+          )}
+
+          {/* Watchable badge — visible at rest so CC0 films are spottable in
+              any row (plan WS5). Glass chip, top-left, inside the card. */}
+          {data.watchable && (
+            <span
+              className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-ink-0)]"
+              style={{
+                background: "oklch(0.085 0.03 245 / 0.7)",
+                backdropFilter: "blur(8px) saturate(150%)",
+                WebkitBackdropFilter: "blur(8px) saturate(150%)",
+                border: "1px solid oklch(0.92 0.08 200 / 0.25)",
+              }}
+            >
+              <span aria-hidden>▶</span> Free
+            </span>
           )}
 
           {/* Muted trailer overlay (cross-fades over the poster, still inside card) */}

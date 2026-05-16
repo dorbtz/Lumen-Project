@@ -230,6 +230,20 @@ export function SearchOverlay() {
                   ))}
                 </ul>
               )}
+
+              {query.trim().length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+                  }}
+                  className="w-full flex items-center justify-between gap-3 px-5 py-3 border-t border-white/5 text-left text-sm text-[var(--color-accent)] hover:bg-white/[0.03] transition-colors"
+                >
+                  <span>See all results for “{query.trim()}” — posters, franchises & people</span>
+                  <span aria-hidden>→</span>
+                </button>
+              )}
             </div>
           </motion.div>
         </motion.div>
@@ -259,7 +273,9 @@ function SearchRow({
       : null;
   const primary = isTitle ? hit.title : hit.name;
   const secondary = isTitle
-    ? [hit.year, hit.voteAverage ? `★ ${hit.voteAverage.toFixed(1)}` : null].filter(Boolean).join(" · ")
+    ? [hit.year, hit.voteAverage ? `★ ${hit.voteAverage.toFixed(1)}` : null]
+        .filter(Boolean)
+        .join(" · ")
     : (hit.knownForDept ?? "Person");
   return (
     <li role="option" aria-selected={focused}>
@@ -268,9 +284,7 @@ function SearchRow({
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-          focused
-            ? "bg-[oklch(0.84_0.16_200_/_0.10)]"
-            : "hover:bg-white/[0.03]"
+          focused ? "bg-[oklch(0.84_0.16_200_/_0.10)]" : "hover:bg-white/[0.03]"
         }`}
       >
         <div className="w-10 h-14 shrink-0 rounded-md overflow-hidden bg-[var(--color-surface-2)]">
@@ -286,9 +300,7 @@ function SearchRow({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm text-[var(--color-ink-0)] truncate tracking-tight">
-            {primary}
-          </div>
+          <div className="text-sm text-[var(--color-ink-0)] truncate tracking-tight">{primary}</div>
           <div className="text-[11px] uppercase tracking-widest text-[var(--color-ink-3)] truncate">
             {isTitle ? "Film" : "Person"}
             {secondary ? ` · ${secondary}` : ""}
@@ -305,9 +317,7 @@ function SearchRow({
 function SearchHint() {
   return (
     <div className="px-5 py-10 text-center">
-      <p className="text-sm text-[var(--color-ink-2)]">
-        Start typing — films, directors, actors.
-      </p>
+      <p className="text-sm text-[var(--color-ink-2)]">Start typing — films, directors, actors.</p>
       <p className="mt-2 text-[11px] uppercase tracking-widest text-[var(--color-ink-3)]">
         ↑↓ to move · ↵ to open · Esc to close
       </p>
