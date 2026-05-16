@@ -14,6 +14,7 @@
 import { searchByTimeboxAction } from "@/app/(app)/discover/timebox/actions";
 import { TitlePreviewCard, type TitlePreviewData } from "@/components/title/TitlePreviewCard";
 import { capture } from "@/lib/analytics/events";
+import { runtimeCap, runtimeFloor } from "@/lib/discover/timebox-rule";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 const PRESETS = [90, 120, 150] as const;
@@ -108,7 +109,9 @@ export function TimeBox() {
         className="text-center text-[10px] uppercase tracking-[0.28em] text-[var(--color-ink-3)]"
         aria-live="polite"
       >
-        {tooShort ? "Too short for a feature" : `Films under ${minutes + 8} min`}
+        {tooShort
+          ? "Too short for a feature"
+          : `Films around ${runtimeFloor(minutes)}–${runtimeCap(minutes)} min`}
         {pending && <span className="ml-2 text-[var(--color-accent)]">…</span>}
       </div>
 

@@ -8,7 +8,7 @@
  */
 
 import { moodQueryLiteral } from "@/lib/discover/mood-vector";
-import { runtimeCap } from "@/lib/discover/timebox-rule";
+import { runtimeCap, runtimeFloor } from "@/lib/discover/timebox-rule";
 import { and, desc, eq, ilike, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "./client";
 import { type Title, profiles, titles } from "./schema";
@@ -157,50 +157,56 @@ export async function getTitlesByTasteCentroid(
  * path the Mood Dial / taste rows already use). Grace of +8 min per spec.
  * If the centroid is absent we degrade to popularity within the runtime cap.
  */
+const TIMEBOX_COLS = sql`id, tmdb_id AS "tmdbId", type, title, original_title AS "originalTitle",
+  release_year AS "releaseYear", runtime_min AS "runtimeMin", overview, tagline,
+  poster_path AS "posterPath", backdrop_path AS "backdropPath",
+  vibrant_palette AS "vibrantPalette", imdb_id AS "imdbId",
+  popularity, vote_average AS "voteAverage", vote_count AS "voteCount",
+  keywords, genres,
+  NULL::vector AS "moodVector", NULL::vector AS "embedding",
+  created_at AS "createdAt", updated_at AS "updatedAt"`;
+
 export async function getTitlesByTimebox(
   maxMinutes: number,
   centroid: number[] | null,
   limit = 24,
 ): Promise<Title[]> {
   const cap = runtimeCap(maxMinutes); // +8 grace (pure rule)
-  if (!centroid || centroid.length !== 384) {
+  const floor = runtimeFloor(maxMinutes); // band lower edge (pure rule)
+  const hasCentroid = !!centroid && centroid.length === 384;
+  const centroidLiteral = hasCentroid ? `[${centroid?.join(",")}]` : null;
+
+  // Band the runtime so the budget acts like a *target length*, not just a
+  // ceiling — otherwise short popular films top every preset. `min` is 0 for
+  // the relaxation pass so we never show an empty/sparse grid on edge budgets
+  // or a thin catalog.
+  const run = async (min: number): Promise<Title[]> => {
+    const order =
+      hasCentroid && centroidLiteral
+        ? sql`ORDER BY embedding <=> ${centroidLiteral}::vector, popularity DESC`
+        : sql`ORDER BY popularity DESC`;
+    const embeddingFilter =
+      hasCentroid && centroidLiteral ? sql`AND embedding IS NOT NULL` : sql``;
     const rows = await db.execute(sql`
-      SELECT id, tmdb_id AS "tmdbId", type, title, original_title AS "originalTitle",
-             release_year AS "releaseYear", runtime_min AS "runtimeMin", overview, tagline,
-             poster_path AS "posterPath", backdrop_path AS "backdropPath",
-             vibrant_palette AS "vibrantPalette", imdb_id AS "imdbId",
-             popularity, vote_average AS "voteAverage", vote_count AS "voteCount",
-             keywords, genres,
-             NULL::vector AS "moodVector", NULL::vector AS "embedding",
-             created_at AS "createdAt", updated_at AS "updatedAt"
+      SELECT ${TIMEBOX_COLS}
       FROM titles
       WHERE poster_path IS NOT NULL
         AND runtime_min IS NOT NULL
+        AND runtime_min >= ${min}
         AND runtime_min <= ${cap}
-      ORDER BY popularity DESC
+        ${embeddingFilter}
+      ${order}
       LIMIT ${limit}
     `);
     return rows.rows as unknown as Title[];
-  }
-  const centroidLiteral = `[${centroid.join(",")}]`;
-  const rows = await db.execute(sql`
-    SELECT id, tmdb_id AS "tmdbId", type, title, original_title AS "originalTitle",
-           release_year AS "releaseYear", runtime_min AS "runtimeMin", overview, tagline,
-           poster_path AS "posterPath", backdrop_path AS "backdropPath",
-           vibrant_palette AS "vibrantPalette", imdb_id AS "imdbId",
-           popularity, vote_average AS "voteAverage", vote_count AS "voteCount",
-           keywords, genres,
-           NULL::vector AS "moodVector", NULL::vector AS "embedding",
-           created_at AS "createdAt", updated_at AS "updatedAt"
-    FROM titles
-    WHERE poster_path IS NOT NULL
-      AND runtime_min IS NOT NULL
-      AND runtime_min <= ${cap}
-      AND embedding IS NOT NULL
-    ORDER BY embedding <=> ${centroidLiteral}::vector, popularity DESC
-    LIMIT ${limit}
-  `);
-  return rows.rows as unknown as Title[];
+  };
+
+  const banded = await run(floor);
+  // Keep the band if it returns a usefully full grid; otherwise relax the
+  // floor so a sparse band degrades gracefully to the old ceiling behavior.
+  const minUseful = Math.min(limit, 8);
+  if (banded.length >= minUseful) return banded;
+  return run(0);
 }
 
 /** Similar titles to a given title via pgvector. Falls back to popularity if no embedding. */

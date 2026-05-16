@@ -1,4 +1,9 @@
-import { fitsBudget, isViableBudget, runtimeCap } from "@/lib/discover/timebox-rule";
+import {
+  fitsBudget,
+  isViableBudget,
+  runtimeCap,
+  runtimeFloor,
+} from "@/lib/discover/timebox-rule";
 import { describe, expect, it } from "vitest";
 
 describe("isViableBudget", () => {
@@ -20,6 +25,30 @@ describe("runtimeCap", () => {
   });
   it("rounds fractional budgets", () => {
     expect(runtimeCap(89.6)).toBe(98);
+  });
+});
+
+describe("runtimeFloor", () => {
+  it("scales the band lower edge with the budget", () => {
+    // ~62% of budget → Quick / Standard / Epic target different lengths
+    expect(runtimeFloor(90)).toBe(56);
+    expect(runtimeFloor(120)).toBe(74);
+    expect(runtimeFloor(150)).toBe(93);
+  });
+  it("makes the presets produce distinct bands (the bug fix)", () => {
+    // A 92-min film (e.g. The Super Mario Bros. Movie) must fall OUT of the
+    // Epic band so it can't top every preset.
+    expect(runtimeFloor(150)).toBeGreaterThan(92);
+    expect(runtimeFloor(90)).toBeLessThanOrEqual(92);
+  });
+  it("never drops below the viable minimum", () => {
+    expect(runtimeFloor(40)).toBe(40);
+    expect(runtimeFloor(50)).toBe(40);
+  });
+  it("stays strictly below the cap so the band is non-empty", () => {
+    for (const m of [40, 73, 90, 120, 150, 240]) {
+      expect(runtimeFloor(m)).toBeLessThan(runtimeCap(m));
+    }
   });
 });
 
