@@ -1,18 +1,25 @@
 /**
  * Lumen — CC0 / public-domain catalog (SPEC Appendix A.1, decision D1).
  *
- * The 20 confirmed-public-domain (US) films from the spec. Each entry pairs:
+ * Each entry pairs:
  *   - tmdbId            → links the Mux asset to our `titles` row
  *   - archiveIdentifier → an Internet Archive item id; the ingest script
  *                          resolves the largest MP4 via the IA metadata API
  *                          and hands that URL to Mux as the asset `input`.
  *
- * Catalog is capped at 20 per SPEC §17 (Mux egress / trial-credit budget).
- * archive.org hosts these as public-domain media; Mux pulls the file once
- * at ingest and serves HLS thereafter (no archive.org on the hot path).
+ * Capped at 10 entries: Mux's free plan hard-limits an account to 10 video
+ * assets (`400 invalid_parameters "Free plan is limited to 10 assets"`).
+ * SPEC §17 originally listed 20 films, but the free-tier-only constraint
+ * makes 10 the real ceiling, so the catalog is trimmed to exactly the 10
+ * that are ingested and `ready` on Mux. `/title/[id]/watch` plays these
+ * via Mux HLS and gracefully falls back to the YouTube trailer for any
+ * other title. archive.org hosts these as public-domain media; Mux pulls
+ * the file once at ingest and serves HLS thereafter (no archive.org on
+ * the hot path).
  *
  * All identifiers verified 2026-05-16 against the IA metadata API.
  * All TMDB ids verified 2026-05-16 against the TMDB movie endpoint.
+ * All 10 confirmed `ready` on Mux 2026-05-16.
  */
 
 export interface Cc0CatalogEntry {
@@ -79,66 +86,6 @@ export const CC0_CATALOG: Cc0CatalogEntry[] = [
     year: 1936,
     tmdbId: 37833,
     archiveIdentifier: "reefer_madness1938",
-  },
-  {
-    title: "His Girl Friday",
-    year: 1940,
-    tmdbId: 3085,
-    archiveIdentifier: "his_girl_friday",
-  },
-  {
-    title: "Detour",
-    year: 1945,
-    tmdbId: 20367,
-    archiveIdentifier: "detour_1945",
-  },
-  {
-    title: "The Stranger",
-    year: 1946,
-    tmdbId: 20246,
-    archiveIdentifier: "the-stranger-1946_202404",
-  },
-  {
-    title: "D.O.A.",
-    year: 1949,
-    tmdbId: 18995,
-    archiveIdentifier: "DOA1950",
-  },
-  {
-    title: "Plan 9 from Outer Space",
-    year: 1957,
-    tmdbId: 10513,
-    archiveIdentifier: "plan-9-from-outer-space_202011",
-  },
-  {
-    title: "The Killer Shrews",
-    year: 1959,
-    tmdbId: 43109,
-    archiveIdentifier: "the-killer-shrews",
-  },
-  {
-    title: "Carnival of Souls",
-    year: 1962,
-    tmdbId: 16093,
-    archiveIdentifier: "carnival_of_souls",
-  },
-  {
-    title: "Dementia 13",
-    year: 1963,
-    tmdbId: 28503,
-    archiveIdentifier: "dementia-13-1963_202312",
-  },
-  {
-    title: "Charade",
-    year: 1963,
-    tmdbId: 4808,
-    archiveIdentifier: "charade_202604",
-  },
-  {
-    title: "The Last Man on Earth",
-    year: 1964,
-    tmdbId: 21159,
-    archiveIdentifier: "TheLastManOnEarth1964_201808",
   },
   {
     title: "Night of the Living Dead",
