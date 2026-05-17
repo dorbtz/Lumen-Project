@@ -75,7 +75,9 @@ export const titles = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    tmdbIdUnique: uniqueIndex("titles_tmdb_id_unique").on(t.tmdbId),
+    // (tmdb_id, type): a movie and a tv row may share a numeric id
+    // (TMDB namespaces overlap) — migration 0007.
+    tmdbIdUnique: uniqueIndex("titles_tmdb_id_type_unique").on(t.tmdbId, t.type),
     popularityIdx: index("titles_popularity_idx").on(sql`${t.popularity} DESC`),
     typeIdx: index("titles_type_idx").on(t.type),
     collectionIdx: index("titles_collection_idx").on(t.collectionId),

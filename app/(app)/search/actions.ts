@@ -394,6 +394,10 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
   const series: TitlePreviewData[] = (await searchCc0SeriesRows(q)).map((r) => ({
     ...rowToPreview(r),
     watchable: true,
+    // Re-pointed CC0 (positive TMDB id) → route ?type=tv so the page
+    // live-renders TMDB + the CC0 episodes. Un-merged (negative id) keep
+    // the DB-row path (no hint).
+    mediaType: r.tmdbId > 0 ? ("tv" as const) : undefined,
   }));
 
   // 1. Local catalog: title / original title / franchise name / keyword /

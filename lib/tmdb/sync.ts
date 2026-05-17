@@ -94,7 +94,9 @@ async function upsertTitleFromTmdb(full: TmdbMovie): Promise<void> {
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
-      target: titles.tmdbId,
+      // Composite to match the (tmdb_id, type) unique index (0007). This
+      // upsert only ever writes type='movie', so behaviour is unchanged.
+      target: [titles.tmdbId, titles.type],
       set: {
         title: full.title,
         originalTitle: full.original_title ?? null,
