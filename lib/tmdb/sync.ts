@@ -33,7 +33,11 @@ export async function getOrSyncTitle(tmdbId: number): Promise<Title | null> {
            keywords, genres,
            NULL::vector AS "moodVector", NULL::vector AS "embedding",
            created_at AS "createdAt", updated_at AS "updatedAt"
-    FROM titles WHERE tmdb_id = ${tmdbId} LIMIT 1
+    FROM titles WHERE tmdb_id = ${tmdbId}
+    -- (tmdb_id,type) can now hold both a movie and a re-pointed tv row
+    -- (0007). This path is the movie context; tv is reached via
+    -- ?type=tv which skips it. Deterministically prefer the movie row.
+    ORDER BY (type = 'movie') DESC LIMIT 1
   `);
   const existing = (rows.rows as unknown as Title[])[0];
 
