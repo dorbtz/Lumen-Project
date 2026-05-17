@@ -103,7 +103,7 @@ function ViewCard({
           <GlassCard
             weight="thin"
             interactive
-            className="flex flex-col items-center gap-3 py-8"
+            className="flex flex-col items-center gap-3 pt-8 pb-16"
           >
             <span
               aria-hidden
@@ -124,20 +124,27 @@ function ViewCard({
 
       {/* Hover-revealed action buttons. We position outside the form so they
        * don't accidentally submit it. */}
-      {/* Always visible on touch/mobile (no hover); hover-revealed on
-       * desktop (md+) for the cleaner picker aesthetic. */}
-      <div className="absolute top-3 right-3 flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-        <IconButton aria-label={`Edit profile ${profile.name}`} onClick={onEdit}>
+      {/* Bottom action bar — sits below the name, never over the avatar.
+       * Always visible on touch/mobile; hover-revealed on desktop (md+)
+       * for the cleaner picker aesthetic. Outside the form so the labelled
+       * buttons don't submit it. */}
+      <div className="absolute inset-x-2 bottom-2 flex items-center justify-center gap-1 rounded-xl bg-black/45 backdrop-blur-md ring-1 ring-white/10 p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+        <ActionButton aria-label={`Edit profile ${profile.name}`} onClick={onEdit}>
           <PencilIcon />
-        </IconButton>
+          Edit
+        </ActionButton>
         {canDelete && (
-          <IconButton
-            aria-label={`Delete profile ${profile.name}`}
-            onClick={onAskDelete}
-            danger
-          >
-            <TrashIcon />
-          </IconButton>
+          <>
+            <span aria-hidden className="h-5 w-px bg-white/10" />
+            <ActionButton
+              aria-label={`Delete profile ${profile.name}`}
+              onClick={onAskDelete}
+              danger
+            >
+              <TrashIcon />
+              Delete
+            </ActionButton>
+          </>
         )}
       </div>
     </>
@@ -355,7 +362,7 @@ function DeleteDialog({
   );
 }
 
-function IconButton({
+function ActionButton({
   children,
   onClick,
   danger,
@@ -371,10 +378,10 @@ function IconButton({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`size-9 md:size-7 rounded-full flex items-center justify-center ring-1 transition-all ${
+      className={`flex-1 inline-flex items-center justify-center gap-1.5 h-9 md:h-8 px-3 rounded-lg text-xs font-medium tracking-tight transition-colors ${
         danger
-          ? "bg-black/40 ring-white/10 hover:bg-red-500/20 hover:ring-red-400/40 text-[var(--color-ink-2)] hover:text-red-300"
-          : "bg-black/40 ring-white/10 hover:bg-white/10 hover:ring-white/25 text-[var(--color-ink-2)] hover:text-[var(--color-ink-0)]"
+          ? "text-[var(--color-ink-2)] hover:bg-red-500/15 hover:text-red-300 active:bg-red-500/20"
+          : "text-[var(--color-ink-2)] hover:bg-white/10 hover:text-[var(--color-ink-0)] active:bg-white/15"
       }`}
     >
       {children}
