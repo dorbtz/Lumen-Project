@@ -23,6 +23,10 @@ export interface SearchTitleHit {
   year: number | null;
   overview: string | null;
   voteAverage: number | null; // 0–10 from TMDB, not pre-multiplied
+  /** "tv" only for our hosted CC0 series; everything else is a movie. */
+  media?: "movie" | "tv";
+  /** True for CC0 titles streamable in-app (shows a "Free" affordance). */
+  watchable?: boolean;
 }
 
 export interface SearchPersonHit {
@@ -36,9 +40,53 @@ export interface SearchPersonHit {
 
 export type SearchHit = SearchTitleHit | SearchPersonHit;
 
+/**
+ * CC0 *series* we host (type='tv' with a ready cc0_videos row). Matched on
+ * title / original title. Negative synthetic tmdb_ids never collide with the
+ * positive TMDB id space, so these are always safe to merge in. Resilient:
+ * degrades to [] if the cc0_* tables aren't present yet.
+ */
+async function searchCc0SeriesRows(like: string): Promise<CatalogRow[]> {
+  try {
+    const res = await db.execute(sql`
+      SELECT t.id, t.tmdb_id AS "tmdbId", t.title,
+             t.release_year AS "releaseYear", t.runtime_min AS "runtimeMin",
+             t.poster_path AS "posterPath", t.backdrop_path AS "backdropPath",
+             t.vote_average AS "voteAverage", t.overview, t.genres,
+             NULL::int AS "collectionId", NULL::text AS "collectionName"
+      FROM titles t
+      WHERE t.type = 'tv'
+        AND t.poster_path IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM cc0_videos v
+          WHERE v.title_id = t.id AND v.status = 'ready'
+        )
+        AND (t.title ILIKE ${like} OR t.original_title ILIKE ${like})
+      ORDER BY t.popularity DESC
+      LIMIT 24
+    `);
+    return res.rows as unknown as CatalogRow[];
+  } catch {
+    return [];
+  }
+}
+
 export async function searchAction(query: string): Promise<SearchHit[]> {
   const q = query.trim();
   if (q.length < 2) return [];
+  // CC0 series first (locally hosted, watchable) — these lead the overlay.
+  const series = await searchCc0SeriesRows(`%${q}%`);
+  const seriesHits: SearchHit[] = series.slice(0, 8).map((r) => ({
+    kind: "title",
+    tmdbId: r.tmdbId,
+    title: r.title,
+    posterPath: r.posterPath,
+    year: r.releaseYear ?? null,
+    overview: r.overview ?? null,
+    voteAverage: r.voteAverage != null ? r.voteAverage / 10 : null,
+    media: "tv",
+    watchable: true,
+  }));
   try {
     const page = await tmdb.searchMulti(q, 1);
     const hits: SearchHit[] = [];
@@ -77,11 +125,12 @@ export async function searchAction(query: string): Promise<SearchHit[]> {
           : (b.popularity ?? 0) / 50;
       return bp - ap;
     });
-    return hits.slice(0, 30);
+    return [...seriesHits, ...hits].slice(0, 30);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn("[search] failed", (err as Error).message);
-    return [];
+    // TMDB down — still surface the locally hosted CC0 series.
+    return seriesHits;
   }
 }
 
@@ -97,6 +146,8 @@ export interface SearchCollectionGroup {
 
 export interface SearchCatalogResult {
   collections: SearchCollectionGroup[];
+  /** Hosted CC0 TV series (watchable in-app) — kept separate from movies. */
+  series: TitlePreviewData[];
   titles: TitlePreviewData[];
   people: SearchPersonHit[];
 }
@@ -139,8 +190,15 @@ function rowToPreview(r: CatalogRow): TitlePreviewData {
 
 export async function searchCatalog(query: string): Promise<SearchCatalogResult> {
   const q = query.trim();
-  if (q.length < 2) return { collections: [], titles: [], people: [] };
+  if (q.length < 2) return { collections: [], series: [], titles: [], people: [] };
   const like = `%${q}%`;
+
+  // CC0 TV series we host — surfaced as their own section, separate from
+  // movies. Marked watchable so the poster card shows the "Free" badge.
+  const series: TitlePreviewData[] = (await searchCc0SeriesRows(like)).map((r) => ({
+    ...rowToPreview(r),
+    watchable: true,
+  }));
 
   // 1. Local catalog: title / original title / franchise name / keyword /
   //    genre match over the FULL catalog (not embedding-gated). The
@@ -280,6 +338,7 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
 
   return {
     collections,
+    series,
     titles: titles.slice(0, 60),
     people: people.slice(0, 12),
   };

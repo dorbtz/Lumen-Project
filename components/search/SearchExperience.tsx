@@ -17,7 +17,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 const DEBOUNCE_MS = 240;
-const EMPTY: SearchCatalogResult = { collections: [], titles: [], people: [] };
+const EMPTY: SearchCatalogResult = { collections: [], series: [], titles: [], people: [] };
 
 export function SearchExperience({ initialQuery }: { initialQuery: string }) {
   const [query, setQuery] = useState(initialQuery);
@@ -56,6 +56,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
     touched &&
     !pending &&
     result.collections.length === 0 &&
+    result.series.length === 0 &&
     result.titles.length === 0 &&
     result.people.length === 0;
 
@@ -103,13 +104,30 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           </section>
         ))}
 
+        {result.series.length > 0 && (
+          <section>
+            <div className="flex items-baseline justify-between mb-3">
+              <h2 className="text-lg md:text-xl tracking-tight font-[var(--font-display)]">
+                TV series
+              </h2>
+              <p className="text-[11px] uppercase tracking-widest text-[var(--color-accent)]">
+                {result.series.length} · watch free
+              </p>
+            </div>
+            <PosterGrid items={result.series} />
+          </section>
+        )}
+
         {result.titles.length > 0 && (
           <section>
-            {result.collections.length > 0 && (
-              <h2 className="text-lg md:text-xl tracking-tight font-[var(--font-display)] mb-3">
-                More results
+            <div className="flex items-baseline justify-between mb-3">
+              <h2 className="text-lg md:text-xl tracking-tight font-[var(--font-display)]">
+                Movies
               </h2>
-            )}
+              <p className="text-[11px] uppercase tracking-widest text-[var(--color-ink-3)]">
+                {result.titles.length} {result.titles.length === 1 ? "film" : "films"}
+              </p>
+            </div>
             <PosterGrid items={result.titles} />
           </section>
         )}

@@ -76,4 +76,5 @@ public/swe-worker-*.js
 # Kept local-only (operational tooling + internal specs) — not published
 SPEC.md
 SPEC_COMPLETION.md
+SPEC_*.md
 scripts/

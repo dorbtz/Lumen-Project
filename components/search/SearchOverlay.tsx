@@ -272,8 +272,13 @@ function SearchRow({
       ? `https://image.tmdb.org/t/p/w185${hit.profilePath}`
       : null;
   const primary = isTitle ? hit.title : hit.name;
+  const isTv = isTitle && hit.media === "tv";
   const secondary = isTitle
-    ? [hit.year, hit.voteAverage ? `★ ${hit.voteAverage.toFixed(1)}` : null]
+    ? [
+        hit.year,
+        hit.voteAverage ? `★ ${hit.voteAverage.toFixed(1)}` : null,
+        hit.watchable ? "Free" : null,
+      ]
         .filter(Boolean)
         .join(" · ")
     : (hit.knownForDept ?? "Person");
@@ -302,7 +307,9 @@ function SearchRow({
         <div className="min-w-0 flex-1">
           <div className="text-sm text-[var(--color-ink-0)] truncate tracking-tight">{primary}</div>
           <div className="text-[11px] uppercase tracking-widest text-[var(--color-ink-3)] truncate">
-            {isTitle ? "Film" : "Person"}
+            <span className={isTv ? "text-[var(--color-accent)]" : undefined}>
+              {isTitle ? (isTv ? "TV series" : "Film") : "Person"}
+            </span>
             {secondary ? ` · ${secondary}` : ""}
           </div>
         </div>
