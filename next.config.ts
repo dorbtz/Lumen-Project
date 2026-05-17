@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
       // Public-domain title thumbnails (Archive.org item images).
       { protocol: "https", hostname: "archive.org" },
       { protocol: "https", hostname: "*.archive.org" },
+      // CC0 series posters resolved from IMDB (Amazon media CDN).
+      { protocol: "https", hostname: "m.media-amazon.com" },
     ],
   },
   // SPEC §5: typography expects SF Pro / Inter Display — system fonts pass through cleanly.
