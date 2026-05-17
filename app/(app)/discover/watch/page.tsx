@@ -83,6 +83,7 @@ async function WatchHub() {
                   overview: t.overview ?? null,
                   genres: (t.genres as string[] | null) ?? null,
                   watchable: true,
+                  mediaType: t.type === "tv" ? "tv" : undefined,
                 }}
                 posterWidth={170}
                 className="w-full"

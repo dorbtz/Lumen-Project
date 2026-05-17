@@ -77,6 +77,7 @@ async function WatchlistIndex() {
                       title: item.title.title,
                       posterPath: item.title.posterPath,
                       releaseYear: item.title.releaseYear,
+                      mediaType: item.title.type === "tv" ? "tv" : undefined,
                     }}
                     posterWidth={148}
                   />

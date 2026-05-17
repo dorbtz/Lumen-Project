@@ -17,6 +17,7 @@ export interface WatchlistItemWithTitle {
     title: string;
     posterPath: string | null;
     releaseYear: number | null;
+    type: string;
   };
 }
 
@@ -92,6 +93,7 @@ export async function listWatchlistItems(
       titleTitle: titles.title,
       titlePoster: titles.posterPath,
       titleYear: titles.releaseYear,
+      titleType: titles.type,
     })
     .from(watchlistItems)
     .innerJoin(titles, eq(watchlistItems.titleId, titles.id))
@@ -108,6 +110,7 @@ export async function listWatchlistItems(
       title: r.titleTitle,
       posterPath: r.titlePoster,
       releaseYear: r.titleYear,
+      type: r.titleType,
     },
   }));
 }

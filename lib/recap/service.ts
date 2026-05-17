@@ -30,6 +30,7 @@ export interface RecapMoment {
   title: string;
   posterPath: string | null;
   beat: string;
+  type: string;
 }
 
 interface RecapStoryJson {
@@ -119,6 +120,7 @@ export async function getOrGenerateRecap(
         title: e.title,
         posterPath: e.poster_path,
         beat: m.beat,
+        type: e.title_type,
       };
     });
 
@@ -153,6 +155,7 @@ interface RecentEntryRow {
   tmdb_id: number;
   title: string;
   poster_path: string | null;
+  title_type: string;
 }
 
 async function loadEntries(
@@ -167,7 +170,8 @@ async function loadEntries(
       je.mood_at_watch::text AS mood,
       t.tmdb_id AS tmdb_id,
       t.title AS title,
-      t.poster_path AS poster_path
+      t.poster_path AS poster_path,
+      t.type AS title_type
     FROM journal_entries je
     INNER JOIN titles t ON t.id = je.title_id
     WHERE je.profile_id = ${profileId}
@@ -190,7 +194,8 @@ async function loadEntries(
       je.mood_at_watch::text AS mood,
       t.tmdb_id AS tmdb_id,
       t.title AS title,
-      t.poster_path AS poster_path
+      t.poster_path AS poster_path,
+      t.type AS title_type
     FROM journal_entries je
     INNER JOIN titles t ON t.id = je.title_id
     WHERE je.profile_id = ${profileId}

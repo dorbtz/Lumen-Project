@@ -12,6 +12,7 @@ import { type DeleteJournalResult, deleteJournalAction } from "@/app/(app)/journ
 import { GlassCard } from "@/components/glass";
 import type { JournalEntryWithTitle } from "@/lib/journal/service";
 import { posterUrl } from "@/lib/img/poster";
+import { titleHref } from "@/lib/title-href";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -193,7 +194,7 @@ function JournalEntryCard({
   if (!linked) return body;
   return (
     <Link
-      href={`/title/${entry.title.tmdbId}`}
+      href={titleHref(entry.title.tmdbId, entry.title.type)}
       className="block transition-transform hover:-translate-y-0.5"
     >
       {body}

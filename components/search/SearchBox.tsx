@@ -7,6 +7,7 @@
 
 import { type SearchHit, searchAction } from "@/app/(app)/search/actions";
 import { posterUrl } from "@/lib/img/poster";
+import { titleHref } from "@/lib/title-href";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -84,7 +85,7 @@ function TitleHit({ hit }: { hit: Extract<SearchHit, { kind: "title" }> }) {
   const poster = posterUrl(hit.posterPath, "w342");
   return (
     <Link
-      href={`/title/${hit.tmdbId}`}
+      href={titleHref(hit.tmdbId, hit.media === "tv" && hit.tmdbId > 0 ? "tv" : undefined)}
       className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] rounded-xl"
     >
       <div className="aspect-[2/3] relative rounded-xl overflow-hidden bg-[var(--color-surface-2)] group-hover:scale-[1.03] transition-transform">

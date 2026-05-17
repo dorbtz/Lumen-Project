@@ -401,6 +401,7 @@ async function TitleDetail({ params, searchParams }: PageProps) {
                     voteAverage: s.voteAverage ?? null,
                     overview: s.overview ?? null,
                     genres: (s.genres as string[] | null) ?? null,
+                    mediaType: s.type === "tv" ? "tv" : undefined,
                   }}
                 />
               </div>

@@ -204,6 +204,7 @@ function toPreview(t: Title): TitlePreviewData {
     voteAverage: t.voteAverage ?? null,
     overview: t.overview ?? null,
     genres: (t.genres as string[] | null) ?? null,
+    mediaType: t.type === "tv" ? "tv" : undefined,
   };
 }
 

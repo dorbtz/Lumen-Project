@@ -40,6 +40,7 @@ export interface JournalEntryWithTitle {
     title: string;
     posterPath: string | null;
     releaseYear: number | null;
+    type: string;
   };
 }
 
@@ -188,6 +189,7 @@ export async function listJournalEntries(
       titleTitle: titles.title,
       titlePoster: titles.posterPath,
       titleYear: titles.releaseYear,
+      titleType: titles.type,
     })
     .from(journalEntries)
     .innerJoin(titles, eq(journalEntries.titleId, titles.id))
@@ -206,6 +208,7 @@ export async function listJournalEntries(
       title: r.titleTitle,
       posterPath: r.titlePoster,
       releaseYear: r.titleYear,
+      type: r.titleType,
     },
   }));
 }

@@ -17,6 +17,7 @@ import { getActiveProfileId } from "@/lib/auth/active-profile";
 import { getOrCreateAccount, profileBelongsToCurrentAccount } from "@/lib/auth/profile-queries";
 import { getProfileById } from "@/lib/db/queries";
 import { posterUrl } from "@/lib/img/poster";
+import { titleHref } from "@/lib/title-href";
 import { type ResolvedRecap, getOrGenerateRecap } from "@/lib/recap/service";
 import Image from "next/image";
 import Link from "next/link";
@@ -220,7 +221,7 @@ function RecapBody({
             {recap.moments.map((m, i) => (
               <li key={`${m.tmdbId}-${i}`}>
                 <Link
-                  href={`/title/${m.tmdbId}`}
+                  href={titleHref(m.tmdbId, m.type)}
                   className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] rounded-2xl"
                 >
                   <GlassCard weight="thin" interactive className="flex gap-4 items-start">
