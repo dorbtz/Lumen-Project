@@ -111,7 +111,9 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                 TV series
               </h2>
               <p className="text-[11px] uppercase tracking-widest text-[var(--color-accent)]">
-                {result.series.length} · watch free
+                {result.series.length} series
+                {result.series.some((s) => s.watchable) &&
+                  ` · ${result.series.filter((s) => s.watchable).length} free`}
               </p>
             </div>
             <PosterGrid items={result.series} />
@@ -197,7 +199,12 @@ function PosterGrid({
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
       {items.map((t) => (
-        <TitlePreviewCard key={t.tmdbId} data={t} posterWidth={170} className="w-full" />
+        <TitlePreviewCard
+          key={`${t.tmdbId}:${t.title}`}
+          data={t}
+          posterWidth={170}
+          className="w-full"
+        />
       ))}
     </div>
   );

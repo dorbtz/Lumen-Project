@@ -94,6 +94,26 @@ function foldedSql(col: ReturnType<typeof sql>): ReturnType<typeof sql> {
   return sql`regexp_replace(${expr}, '[^a-z0-9]', '', 'g')`;
 }
 
+/**
+ * True when a TMDB series result is the non-watchable twin of a CC0 series
+ * we already list — same folded title and year within 1. (Effective once
+ * enrich-cc0-tmdb has aligned the CC0 row's title/year to the TMDB show;
+ * pre-enrichment it simply doesn't match, so no regression.) CC0 wins.
+ */
+function isCc0SeriesTwin(
+  name: string,
+  year: number | null,
+  cc0: ReadonlyArray<{ title: string; year: number | null }>,
+): boolean {
+  const n = normLoose(name);
+  if (n.length < 2) return false;
+  for (const c of cc0) {
+    if (normLoose(c.title) !== n) continue;
+    if (year == null || c.year == null || Math.abs(year - c.year) <= 1) return true;
+  }
+  return false;
+}
+
 /** Encoding / quality / format / packaging tokens that don't identify a series. */
 const DERIV_RX =
   /\b(?:x264|x265|h\.?264|h\.?265|hevc|xvid|divx|mkv|mp4|avi|webm|ogv|m4v|480p|576p|720p|1080p|1440p|2160p|4k|hd|sd|ai[\s_-]*upscale|upscale[d]?|remaster(?:ed)?|restored|complete(?:\s+series)?|full\s+series|season\s*\d+|s\d{1,2}|disc\s*\d+|cd\s*\d+|vol(?:ume)?\s*\d+)\b/gi;
@@ -244,18 +264,31 @@ export async function searchAction(query: string): Promise<SearchHit[]> {
         });
       } else if (r.media_type === "tv" && r.poster_path) {
         // Non-CC0 TMDB series — browsable (rendered live on the title
-        // page), not watch-free. Poster required (ghost rule).
-        hits.push({
-          kind: "title",
-          tmdbId: r.id,
-          title: r.name,
-          posterPath: r.poster_path,
-          year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
-          overview: r.overview ?? null,
-          voteAverage: r.vote_average ?? null,
-          media: "tv",
-          watchable: false,
-        });
+        // page), not watch-free. Poster required (ghost rule). Skip the
+        // non-watchable twin of a CC0 series we already list.
+        const tvYear = r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null;
+        if (
+          !isCc0SeriesTwin(
+            r.name,
+            tvYear,
+            seriesHits.map((h) => ({
+              title: h.kind === "title" ? h.title : "",
+              year: h.kind === "title" ? h.year : null,
+            })),
+          )
+        ) {
+          hits.push({
+            kind: "title",
+            tmdbId: r.id,
+            title: r.name,
+            posterPath: r.poster_path,
+            year: tvYear,
+            overview: r.overview ?? null,
+            voteAverage: r.vote_average ?? null,
+            media: "tv",
+            watchable: false,
+          });
+        }
       } else if (r.media_type === "person") {
         hits.push({
           kind: "person",
@@ -470,6 +503,10 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
   }
 
   // 4. Top up from TMDB for catalog misses + people (best-effort).
+  // Snapshot the CC0 (watchable) series so a TMDB twin can be collapsed.
+  const cc0Twins = series
+    .filter((s) => s.watchable)
+    .map((s) => ({ title: s.title, year: s.releaseYear ?? null }));
   const people: SearchPersonHit[] = [];
   try {
     const page = await tmdb.searchMulti(q, 1);
@@ -487,9 +524,19 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
           overview: r.overview ?? null,
           genres: null,
         });
-      } else if (r.media_type === "tv" && r.poster_path && !seen.has(r.id)) {
-        // Non-CC0 TMDB series → appended to the TV-series section after the
-        // CC0 (watch-free) ones; browsable via the live TV title page.
+      } else if (
+        r.media_type === "tv" &&
+        r.poster_path &&
+        !seen.has(r.id) &&
+        !isCc0SeriesTwin(
+          r.name,
+          r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+          cc0Twins,
+        )
+      ) {
+        // Non-CC0 TMDB series → appended after the CC0 (watch-free) ones;
+        // browsable via the live TV title page. The watchable twin (if any)
+        // already covers this show, so it was skipped above.
         seen.add(r.id);
         series.push({
           tmdbId: r.id,
