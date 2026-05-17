@@ -124,7 +124,9 @@ function ViewCard({
 
       {/* Hover-revealed action buttons. We position outside the form so they
        * don't accidentally submit it. */}
-      <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+      {/* Always visible on touch/mobile (no hover); hover-revealed on
+       * desktop (md+) for the cleaner picker aesthetic. */}
+      <div className="absolute top-3 right-3 flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <IconButton aria-label={`Edit profile ${profile.name}`} onClick={onEdit}>
           <PencilIcon />
         </IconButton>
@@ -369,7 +371,7 @@ function IconButton({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`size-7 rounded-full flex items-center justify-center ring-1 transition-all ${
+      className={`size-9 md:size-7 rounded-full flex items-center justify-center ring-1 transition-all ${
         danger
           ? "bg-black/40 ring-white/10 hover:bg-red-500/20 hover:ring-red-400/40 text-[var(--color-ink-2)] hover:text-red-300"
           : "bg-black/40 ring-white/10 hover:bg-white/10 hover:ring-white/25 text-[var(--color-ink-2)] hover:text-[var(--color-ink-0)]"
