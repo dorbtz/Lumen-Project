@@ -208,7 +208,12 @@ async function searchCc0SeriesRows(query: string): Promise<CatalogRow[]> {
     // the row with the most episodes, then the best encoding, then popularity.
     const best = new Map<string, Cc0SeriesRow>();
     for (const r of rows) {
-      const key = seriesKey(r.title) || `id:${r.tmdbId}`;
+      // Re-pointed rows have a unique real TMDB id (encoding variants were
+      // already folded by the repoint script), so id IS their identity —
+      // keying by seriesKey(title) would wrongly merge distinct shows that
+      // now share a name (Spider-Man 1981 vs 1994). Negative-id un-merged
+      // rows still collapse leftover encoding variants by seriesKey.
+      const key = r.tmdbId > 0 ? `id:${r.tmdbId}` : seriesKey(r.title) || `id:${r.tmdbId}`;
       const cur = best.get(key);
       if (
         !cur ||

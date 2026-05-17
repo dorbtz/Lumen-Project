@@ -15,6 +15,28 @@ export interface Cc0EpisodeVM {
   label: string;
   streamUrl: string;
   durationSec: number | null;
+  /** Parsed from a "NNxNN" token in the label (null for flat collections). */
+  season: number | null;
+  episodeInSeason: number | null;
+  /** TMDB episode still — filled in by the title page for re-pointed series. */
+  stillPath: string | null;
+}
+
+/** "Episode 14 — 02x01 The Insidious Six" → {season:2, ep:1}. */
+function parseSeasonEp(label: string): { season: number | null; ep: number | null } {
+  const m = label.match(/\b(\d{1,2})\s*x\s*(\d{1,3})\b/i);
+  if (!m) return { season: null, ep: null };
+  return { season: Number(m[1]), ep: Number(m[2]) };
+}
+
+/** Display name: drop the "Episode N — " and "NNxNN" prefixes. */
+export function cleanEpisodeName(label: string): string {
+  return (
+    label
+      .replace(/^\s*episode\s+\d+\s*[—–-]\s*/i, "")
+      .replace(/^\s*\d{1,2}\s*x\s*\d{1,3}\s*[-—–:.]?\s*/i, "")
+      .trim() || label
+  );
 }
 
 export interface EpisodeProgress {
@@ -34,7 +56,22 @@ export async function getCc0Episodes(tmdbId: number): Promise<Cc0EpisodeVM[]> {
       WHERE t.tmdb_id = ${tmdbId} AND e.status = 'ready'
       ORDER BY e.episode_index ASC
     `);
-    return rows.rows as unknown as Cc0EpisodeVM[];
+    return (
+      rows.rows as unknown as Array<{
+        episodeIndex: number;
+        label: string;
+        streamUrl: string;
+        durationSec: number | null;
+      }>
+    ).map((r) => {
+      const { season, ep } = parseSeasonEp(r.label);
+      return {
+        ...r,
+        season,
+        episodeInSeason: ep,
+        stillPath: null,
+      };
+    });
   } catch {
     return [];
   }

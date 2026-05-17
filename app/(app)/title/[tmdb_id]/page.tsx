@@ -13,7 +13,7 @@
 import { AppChrome } from "@/components/chrome/AppChrome";
 import { GlassCard } from "@/components/glass";
 import { JournalComposer } from "@/components/journal/JournalComposer";
-import { Cc0EpisodeList } from "@/components/title/Cc0EpisodeList";
+import { Cc0SeasonsBrowser } from "@/components/title/Cc0SeasonsBrowser";
 import { HorizontalScroller } from "@/components/title/HorizontalScroller";
 import { type SeasonSummaryVM, SeasonsBrowser } from "@/components/title/SeasonsBrowser";
 import { TitlePreviewCard } from "@/components/title/TitlePreviewCard";
@@ -109,11 +109,40 @@ async function TitleDetail({ params, searchParams }: PageProps) {
 
   // CC0 *series* — multiple playable Archive files. When present we show a
   // real episode picker (with resume/✓ state) instead of one "Watch now".
-  const cc0Episodes = cc0Available ? await getCc0Episodes(tmdbId).catch(() => []) : [];
-  const hasCc0Series = cc0Episodes.length > 0;
+  const cc0EpisodesRaw = cc0Available ? await getCc0Episodes(tmdbId).catch(() => []) : [];
+  const hasCc0Series = cc0EpisodesRaw.length > 0;
   const watchProgress = hasCc0Series
     ? await getWatchProgressForTitle(activeProfileId, tmdbId).catch(() => ({}))
     : {};
+
+  // Per-episode TMDB stills for a re-pointed (positive-id) watchable
+  // series: fetch each parsed season once, map (season,ep) → still_path.
+  let cc0Episodes = cc0EpisodesRaw;
+  if (hasCc0Series && tmdbId > 0) {
+    const seasonNums = [
+      ...new Set(
+        cc0EpisodesRaw.map((e) => e.season).filter((s): s is number => s != null && s >= 0),
+      ),
+    ];
+    if (seasonNums.length > 0) {
+      const stills = new Map<string, string>();
+      await Promise.all(
+        seasonNums.map(async (sn) => {
+          const season = await tmdb.tvSeason(tmdbId, sn).catch(() => null);
+          for (const ep of season?.episodes ?? []) {
+            if (ep.still_path) stills.set(`${sn}:${ep.episode_number}`, ep.still_path);
+          }
+        }),
+      );
+      cc0Episodes = cc0EpisodesRaw.map((e) => ({
+        ...e,
+        stillPath:
+          e.season != null && e.episodeInSeason != null
+            ? (stills.get(`${e.season}:${e.episodeInSeason}`) ?? null)
+            : null,
+      }));
+    }
+  }
   const cast = (fresh?.credits?.cast ?? []).slice(0, 12);
   const crew = extractHeadlineCrew(fresh?.credits?.crew ?? []);
 
@@ -249,7 +278,7 @@ async function TitleDetail({ params, searchParams }: PageProps) {
           Takes precedence over the TMDB SeasonsBrowser since these
           episodes are the ones actually streamable for free. */}
       {hasCc0Series ? (
-        <Cc0EpisodeList tmdbId={tmdbId} episodes={cc0Episodes} progress={watchProgress} />
+        <Cc0SeasonsBrowser tmdbId={tmdbId} episodes={cc0Episodes} progress={watchProgress} />
       ) : (
         isTv && tvSeasons.length > 0 && <SeasonsBrowser tvId={tmdbId} seasons={tvSeasons} />
       )}
