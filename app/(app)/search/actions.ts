@@ -548,6 +548,7 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
           overview: r.overview ?? null,
           genres: null,
           watchable: false,
+          mediaType: "tv",
         });
       } else if (r.media_type === "person") {
         people.push({

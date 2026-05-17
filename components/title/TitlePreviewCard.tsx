@@ -41,6 +41,9 @@ export interface TitlePreviewData {
   youtubeKey?: string | null;
   /** True when a ready CC0 Mux asset exists — shows a "Free" play badge. */
   watchable?: boolean;
+  /** "tv" routes to /title/[id]?type=tv so the page renders the series,
+   *  not the movie that shares that id (TMDB namespaces collide). */
+  mediaType?: "movie" | "tv";
 }
 
 export interface TitlePreviewCardProps {
@@ -116,7 +119,7 @@ export function TitlePreviewCard({
       style={hasClassWidth ? undefined : { width: posterWidth }}
     >
       <Link
-        href={`/title/${data.tmdbId}`}
+        href={`/title/${data.tmdbId}${data.mediaType === "tv" ? "?type=tv" : ""}`}
         prefetch={false}
         aria-label={`${data.title}${data.releaseYear ? ` (${data.releaseYear})` : ""}`}
         className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-4 focus-visible:ring-offset-transparent rounded-2xl"

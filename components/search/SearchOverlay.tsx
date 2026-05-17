@@ -132,7 +132,12 @@ export function SearchOverlay() {
 
   const openHit = useCallback(
     (hit: SearchHit) => {
-      const href = hit.kind === "title" ? `/title/${hit.tmdbId}` : `/person/${hit.tmdbId}`;
+      // Only non-CC0 TMDB series (positive id) need the tv hint; CC0
+      // series have negative ids and resolve via their DB row.
+      const href =
+        hit.kind === "title"
+          ? `/title/${hit.tmdbId}${hit.media === "tv" && hit.tmdbId > 0 ? "?type=tv" : ""}`
+          : `/person/${hit.tmdbId}`;
       setOpen(false);
       router.push(href);
     },

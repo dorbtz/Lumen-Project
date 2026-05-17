@@ -35,12 +35,13 @@ import { Suspense } from "react";
 
 interface PageProps {
   params: Promise<{ tmdb_id: string }>;
+  searchParams: Promise<{ type?: string }>;
 }
 
-export default function TitlePage({ params }: PageProps) {
+export default function TitlePage({ params, searchParams }: PageProps) {
   return (
     <Suspense fallback={<TitleSkeleton />}>
-      <TitleDetail params={params} />
+      <TitleDetail params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -57,25 +58,32 @@ function TitleSkeleton() {
   );
 }
 
-async function TitleDetail({ params }: PageProps) {
+async function TitleDetail({ params, searchParams }: PageProps) {
   const { tmdb_id } = await params;
+  const { type } = await searchParams;
   const tmdbId = Number(tmdb_id);
   if (!Number.isFinite(tmdbId)) notFound();
+
+  // TMDB movie-ids and tv-ids share one number space. A non-CC0 series
+  // card links with ?type=tv so we render it as TV and NEVER call the
+  // movie-only sync (which would resolve/sync the colliding *movie*).
+  const wantTv = type === "tv";
 
   // Hit TMDB up front so we have videos/credits even if our DB row was pre-seeded
   // without them. Local DB row provides the palette + internal UUID.
   const [row, fresh, activeProfileId] = await Promise.all([
-    getOrSyncTitle(tmdbId),
-    tmdb.movie(tmdbId).catch(() => null),
+    // Skip the movie-only sync entirely for a tv-hinted id — otherwise
+    // getOrSyncTitle would fetch + persist the colliding movie.
+    wantTv ? Promise.resolve(null) : getOrSyncTitle(tmdbId),
+    wantTv ? Promise.resolve(null) : tmdb.movie(tmdbId).catch(() => null),
     getActiveProfileId(),
   ]);
 
-  // No DB row and not a TMDB *movie* → it may be a TMDB *series*. Render it
-  // live from TMDB (no DB write: titles.tmdb_id is unique to movie ids, so
-  // persisting a tv id could collide with a movie). CC0 series keep their
-  // own negative-id rows and are unaffected.
+  // tv-hinted, or no DB row and not a TMDB movie → render live from TMDB
+  // (no DB write: titles.tmdb_id collides across movie/tv namespaces).
+  // CC0 series keep their own negative-id rows and are unaffected.
   let liveTv: Awaited<ReturnType<typeof tmdb.tv>> | null = null;
-  if (!row && !fresh && tmdbId > 0) {
+  if ((wantTv || (!row && !fresh)) && tmdbId > 0) {
     liveTv = await tmdb.tv(tmdbId).catch(() => null);
   }
 
