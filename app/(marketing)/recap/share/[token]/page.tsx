@@ -5,6 +5,7 @@
  * tokens 404. Spotify-Wrapped feel: headline + narrative + first moment.
  */
 
+import { posterUrl } from "@/lib/img/poster";
 import { getRecapByShareToken } from "@/lib/recap/share";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -85,7 +86,7 @@ export default async function PublicRecapPage({
               <div className="shrink-0 w-16 aspect-[2/3] rounded-lg overflow-hidden bg-[var(--color-surface-2)] ring-1 ring-white/10">
                 {recap.firstMoment.posterPath && (
                   <Image
-                    src={`https://image.tmdb.org/t/p/w185${recap.firstMoment.posterPath}`}
+                    src={posterUrl(recap.firstMoment.posterPath, "w185") ?? ""}
                     alt={recap.firstMoment.title}
                     width={185}
                     height={278}

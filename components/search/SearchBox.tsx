@@ -6,6 +6,7 @@
  */
 
 import { type SearchHit, searchAction } from "@/app/(app)/search/actions";
+import { posterUrl } from "@/lib/img/poster";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -80,7 +81,7 @@ export function SearchBox() {
 }
 
 function TitleHit({ hit }: { hit: Extract<SearchHit, { kind: "title" }> }) {
-  const poster = hit.posterPath ? `https://image.tmdb.org/t/p/w342${hit.posterPath}` : null;
+  const poster = posterUrl(hit.posterPath, "w342");
   return (
     <Link
       href={`/title/${hit.tmdbId}`}

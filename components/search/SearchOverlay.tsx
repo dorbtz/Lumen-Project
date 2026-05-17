@@ -19,6 +19,7 @@
  */
 
 import { type SearchHit, searchAction } from "@/app/(app)/search/actions";
+import { posterUrl } from "@/lib/img/poster";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -270,9 +271,7 @@ function SearchRow({
 }) {
   const isTitle = hit.kind === "title";
   const img = isTitle
-    ? hit.posterPath
-      ? `https://image.tmdb.org/t/p/w92${hit.posterPath}`
-      : null
+    ? posterUrl(hit.posterPath, "w92")
     : hit.profilePath
       ? `https://image.tmdb.org/t/p/w185${hit.profilePath}`
       : null;

@@ -11,6 +11,7 @@
 import { type DeleteJournalResult, deleteJournalAction } from "@/app/(app)/journal/actions";
 import { GlassCard } from "@/components/glass";
 import type { JournalEntryWithTitle } from "@/lib/journal/service";
+import { posterUrl } from "@/lib/img/poster";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -147,9 +148,7 @@ function JournalEntryCard({
   entry: JournalEntryWithTitle;
   linked: boolean;
 }) {
-  const poster = entry.title.posterPath
-    ? `https://image.tmdb.org/t/p/w185${entry.title.posterPath}`
-    : null;
+  const poster = posterUrl(entry.title.posterPath, "w185");
   const body = (
     <GlassCard className="flex gap-5">
       <div className="shrink-0 w-20 md:w-24 aspect-[2/3] rounded-lg overflow-hidden bg-[var(--color-surface-2)] ring-1 ring-white/10">

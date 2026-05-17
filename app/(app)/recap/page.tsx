@@ -16,6 +16,7 @@ import { ShareButton } from "@/components/recap/ShareButton";
 import { getActiveProfileId } from "@/lib/auth/active-profile";
 import { getOrCreateAccount, profileBelongsToCurrentAccount } from "@/lib/auth/profile-queries";
 import { getProfileById } from "@/lib/db/queries";
+import { posterUrl } from "@/lib/img/poster";
 import { type ResolvedRecap, getOrGenerateRecap } from "@/lib/recap/service";
 import Image from "next/image";
 import Link from "next/link";
@@ -226,7 +227,7 @@ function RecapBody({
                     <div className="shrink-0 w-16 aspect-[2/3] rounded-lg overflow-hidden bg-[var(--color-surface-2)] ring-1 ring-white/10">
                       {m.posterPath && (
                         <Image
-                          src={`https://image.tmdb.org/t/p/w185${m.posterPath}`}
+                          src={posterUrl(m.posterPath, "w185") ?? ""}
                           alt={m.title}
                           width={185}
                           height={278}
