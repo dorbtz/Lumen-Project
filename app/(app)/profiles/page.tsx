@@ -57,7 +57,7 @@ async function ProfilesPicker() {
           Who&apos;s watching?
         </h1>
 
-        <ul className="mt-10 grid grid-cols-2 md:grid-cols-3 gap-4">
+        <ul className="mt-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {list.map((p) => (
             <li key={p.id}>
               <ProfileCard

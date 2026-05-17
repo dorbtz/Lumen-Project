@@ -128,7 +128,7 @@ function ViewCard({
        * Always visible on touch/mobile; hover-revealed on desktop (md+)
        * for the cleaner picker aesthetic. Outside the form so the labelled
        * buttons don't submit it. */}
-      <div className="absolute inset-x-2 bottom-2 flex items-center justify-center gap-1 rounded-xl bg-black/45 backdrop-blur-md ring-1 ring-white/10 p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+      <div className="absolute inset-x-2 bottom-2 flex items-center justify-center gap-0.5 rounded-xl bg-black/45 backdrop-blur-md ring-1 ring-white/10 p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <ActionButton aria-label={`Edit profile ${profile.name}`} onClick={onEdit}>
           <PencilIcon />
           Edit
@@ -247,7 +247,7 @@ function EditCard({
           </div>
         )}
 
-        <div className="flex items-center gap-3 pt-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
           <button
             type="submit"
             disabled={!canSubmit}
@@ -378,7 +378,7 @@ function ActionButton({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`flex-1 inline-flex items-center justify-center gap-1.5 h-9 md:h-8 px-3 rounded-lg text-xs font-medium tracking-tight transition-colors ${
+      className={`flex-1 min-w-0 inline-flex items-center justify-center gap-1 h-9 md:h-8 px-2 rounded-lg text-[11px] font-medium tracking-tight whitespace-nowrap transition-colors ${
         danger
           ? "text-[var(--color-ink-2)] hover:bg-red-500/15 hover:text-red-300 active:bg-red-500/20"
           : "text-[var(--color-ink-2)] hover:bg-white/10 hover:text-[var(--color-ink-0)] active:bg-white/15"
