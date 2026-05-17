@@ -44,9 +44,54 @@ export type SearchHit = SearchTitleHit | SearchPersonHit;
 // Separator-insensitive matching + CC0-series variant de-duplication
 // ---------------------------------------------------------------------------
 
-/** Lowercase + drop every non-alphanumeric → "Spider-Man"/"spider man" → "spiderman". */
+/**
+ * Number-word ⇄ digit equivalence. Longest-first so "fourteen" → "14"
+ * before "four" → "4". "Fantastic Four" and "Fantastic 4" both fold to
+ * "fantastic4".
+ */
+const NUM_WORDS: readonly [string, string][] = [
+  ["nineteen", "19"],
+  ["eighteen", "18"],
+  ["seventeen", "17"],
+  ["sixteen", "16"],
+  ["fifteen", "15"],
+  ["fourteen", "14"],
+  ["thirteen", "13"],
+  ["twenty", "20"],
+  ["twelve", "12"],
+  ["eleven", "11"],
+  ["ten", "10"],
+  ["nine", "9"],
+  ["eight", "8"],
+  ["seven", "7"],
+  ["six", "6"],
+  ["five", "5"],
+  ["four", "4"],
+  ["three", "3"],
+  ["two", "2"],
+  ["one", "1"],
+];
+
+function numFold(s: string): string {
+  let r = s.toLowerCase();
+  for (const [w, d] of NUM_WORDS) r = r.split(w).join(d);
+  return r;
+}
+
+/** Lowercase + number-fold + drop every non-alphanumeric. "Spider-Man"
+ *  /"spider man" → "spiderman"; "Fantastic Four"/"Fantastic 4" → "fantastic4". */
 function normLoose(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return numFold(s).replace(/[^a-z0-9]+/g, "");
+}
+
+/**
+ * SQL: fold number words → digits on a column then strip non-alphanumerics,
+ * mirroring normLoose() so DB matching agrees with the JS-normalised query.
+ */
+function foldedSql(col: ReturnType<typeof sql>): ReturnType<typeof sql> {
+  let expr = sql`lower(${col})`;
+  for (const [w, d] of NUM_WORDS) expr = sql`replace(${expr}, ${w}, ${d})`;
+  return sql`regexp_replace(${expr}, '[^a-z0-9]', '', 'g')`;
 }
 
 /** Encoding / quality / format / packaging tokens that don't identify a series. */
@@ -131,8 +176,8 @@ async function searchCc0SeriesRows(query: string): Promise<CatalogRow[]> {
           WHERE v.title_id = t.id AND v.status = 'ready'
         )
         AND (
-          regexp_replace(lower(t.title), '[^a-z0-9]', '', 'g') LIKE ${nlike}
-          OR regexp_replace(lower(coalesce(t.original_title, '')), '[^a-z0-9]', '', 'g') LIKE ${nlike}
+          ${foldedSql(sql`t.title`)} LIKE ${nlike}
+          OR ${foldedSql(sql`coalesce(t.original_title, '')`)} LIKE ${nlike}
         )
       ORDER BY t.popularity DESC
       LIMIT 60
@@ -185,7 +230,9 @@ export async function searchAction(query: string): Promise<SearchHit[]> {
     const page = await tmdb.searchMulti(q, 1);
     const hits: SearchHit[] = [];
     for (const r of page.results) {
-      if (r.media_type === "movie") {
+      // Skip "ghost" TMDB records with no poster (e.g. "Rakshak Fantastic 4")
+      // — they have no real data and lead to empty title pages.
+      if (r.media_type === "movie" && r.poster_path) {
         hits.push({
           kind: "title",
           tmdbId: r.id,
@@ -292,8 +339,8 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
   const norm = normLoose(q);
   const nClause =
     norm.length >= 2
-      ? sql`OR regexp_replace(lower(title), '[^a-z0-9]', '', 'g') LIKE ${`%${norm}%`}
-            OR regexp_replace(lower(coalesce(original_title, '')), '[^a-z0-9]', '', 'g') LIKE ${`%${norm}%`}`
+      ? sql`OR ${foldedSql(sql`title`)} LIKE ${`%${norm}%`}
+            OR ${foldedSql(sql`coalesce(original_title, '')`)} LIKE ${`%${norm}%`}`
       : sql``;
 
   // CC0 TV series we host — surfaced as their own section, separate from
@@ -414,7 +461,8 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
   try {
     const page = await tmdb.searchMulti(q, 1);
     for (const r of page.results) {
-      if (r.media_type === "movie" && !seen.has(r.id)) {
+      // Skip poster-less "ghost" records (no real data → empty title page).
+      if (r.media_type === "movie" && r.poster_path && !seen.has(r.id)) {
         seen.add(r.id);
         titles.push({
           tmdbId: r.id,

@@ -84,6 +84,11 @@ async function TitleDetail({ params }: PageProps) {
   const cc0 = await getCc0ByTmdbId(tmdbId).catch(() => null);
   const cc0Available = Boolean(cc0);
 
+  // Hide "ghost" records: a non-CC0 title with neither a poster nor an
+  // overview has no real data (e.g. "Rakshak Fantastic 4") — 404 rather
+  // than render an empty shell. CC0 titles (synthetic ids) are exempt.
+  if (!cc0Available && !t.posterPath && !t.overview) notFound();
+
   // CC0 *series* — multiple playable Archive files. When present we show a
   // real episode picker (with resume/✓ state) instead of one "Watch now".
   const cc0Episodes = cc0Available ? await getCc0Episodes(tmdbId).catch(() => []) : [];
