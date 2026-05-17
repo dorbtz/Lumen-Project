@@ -40,20 +40,89 @@ export interface SearchPersonHit {
 
 export type SearchHit = SearchTitleHit | SearchPersonHit;
 
+// ---------------------------------------------------------------------------
+// Separator-insensitive matching + CC0-series variant de-duplication
+// ---------------------------------------------------------------------------
+
+/** Lowercase + drop every non-alphanumeric → "Spider-Man"/"spider man" → "spiderman". */
+function normLoose(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** Encoding / quality / format / packaging tokens that don't identify a series. */
+const DERIV_RX =
+  /\b(?:x264|x265|h\.?264|h\.?265|hevc|xvid|divx|mkv|mp4|avi|webm|ogv|m4v|480p|576p|720p|1080p|1440p|2160p|4k|hd|sd|ai[\s_-]*upscale|upscale[d]?|remaster(?:ed)?|restored|complete(?:\s+series)?|full\s+series|season\s*\d+|s\d{1,2}|disc\s*\d+|cd\s*\d+|vol(?:ume)?\s*\d+)\b/gi;
+
+/** Strip brackets, DERIV tokens and years, then collapse → a stable series id. */
+function seriesKey(raw: string): string {
+  return normLoose(
+    raw
+      .replace(/\[[^\]]*\]/g, " ")
+      .replace(/\([^)]*\)/g, " ")
+      .replace(DERIV_RX, " ")
+      .replace(/\b(?:19|20)\d{2}\b/g, " "),
+  );
+}
+
+/** Human label: drop the "- 1981 - Season 1 - x264 MKV" tail, keep the name. */
+function cleanSeriesLabel(raw: string): string {
+  const stripped = raw
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(DERIV_RX, " ")
+    .replace(/\b(?:19|20)\d{2}\b/g, " ");
+  // Split on space-padded dashes so an internal hyphen ("Spider-Man") survives.
+  const parts = stripped
+    .split(/\s+[–—-]\s+/)
+    .map((p) => p.replace(/\s{2,}/g, " ").trim())
+    // Keep only segments with real text — drops "", "-" left by removed tokens.
+    .filter((p) => /[a-z0-9]/i.test(p));
+  const out = parts
+    .join(" - ")
+    .replace(/[\s_]+$/g, "")
+    .trim();
+  return out || raw.trim();
+}
+
+/** Higher = better encoding; used to pick which duplicate variant to keep. */
+function qualityRank(raw: string): number {
+  const s = raw.toLowerCase();
+  if (/\b(?:2160p|4k|1440p)\b/.test(s)) return 6;
+  if (/\b1080p\b/.test(s)) return 5;
+  if (/\b(?:x265|h\.?265|hevc)\b/.test(s)) return 4;
+  if (/\b720p\b/.test(s)) return 4;
+  if (/\b(?:x264|h\.?264)\b/.test(s)) return 3;
+  if (/\b(?:xvid|divx)\b/.test(s)) return 2;
+  return 1;
+}
+
+interface Cc0SeriesRow extends CatalogRow {
+  eps: number;
+  popularity: number;
+}
+
 /**
- * CC0 *series* we host (type='tv' with a ready cc0_videos row). Matched on
- * title / original title. Negative synthetic tmdb_ids never collide with the
- * positive TMDB id space, so these are always safe to merge in. Resilient:
- * degrades to [] if the cc0_* tables aren't present yet.
+ * CC0 *series* we host (type='tv' with a ready cc0_videos row). Separator-
+ * insensitive title/original-title match ("spider man" == "spider-man" ==
+ * "spiderman"), with encoding-variant rows (x264 MKV vs XviD …) collapsed to
+ * the best single card and a cleaned display label. Negative synthetic
+ * tmdb_ids never collide with TMDB ids. Resilient: degrades to [] if the
+ * cc0_* tables aren't present yet.
  */
-async function searchCc0SeriesRows(like: string): Promise<CatalogRow[]> {
+async function searchCc0SeriesRows(query: string): Promise<CatalogRow[]> {
+  const norm = normLoose(query);
+  if (norm.length < 2) return [];
+  const nlike = `%${norm}%`;
   try {
     const res = await db.execute(sql`
       SELECT t.id, t.tmdb_id AS "tmdbId", t.title,
              t.release_year AS "releaseYear", t.runtime_min AS "runtimeMin",
              t.poster_path AS "posterPath", t.backdrop_path AS "backdropPath",
              t.vote_average AS "voteAverage", t.overview, t.genres,
-             NULL::int AS "collectionId", NULL::text AS "collectionName"
+             t.popularity AS "popularity",
+             NULL::int AS "collectionId", NULL::text AS "collectionName",
+             (SELECT count(*)::int FROM cc0_episodes e
+                WHERE e.title_id = t.id AND e.status = 'ready') AS "eps"
       FROM titles t
       WHERE t.type = 'tv'
         AND t.poster_path IS NOT NULL
@@ -61,11 +130,36 @@ async function searchCc0SeriesRows(like: string): Promise<CatalogRow[]> {
           SELECT 1 FROM cc0_videos v
           WHERE v.title_id = t.id AND v.status = 'ready'
         )
-        AND (t.title ILIKE ${like} OR t.original_title ILIKE ${like})
+        AND (
+          regexp_replace(lower(t.title), '[^a-z0-9]', '', 'g') LIKE ${nlike}
+          OR regexp_replace(lower(coalesce(t.original_title, '')), '[^a-z0-9]', '', 'g') LIKE ${nlike}
+        )
       ORDER BY t.popularity DESC
-      LIMIT 24
+      LIMIT 60
     `);
-    return res.rows as unknown as CatalogRow[];
+    const rows = res.rows as unknown as Cc0SeriesRow[];
+
+    // Collapse encoding/quality/season variants: one card per series, keeping
+    // the row with the most episodes, then the best encoding, then popularity.
+    const best = new Map<string, Cc0SeriesRow>();
+    for (const r of rows) {
+      const key = seriesKey(r.title) || `id:${r.tmdbId}`;
+      const cur = best.get(key);
+      if (
+        !cur ||
+        r.eps > cur.eps ||
+        (r.eps === cur.eps && qualityRank(r.title) > qualityRank(cur.title)) ||
+        (r.eps === cur.eps &&
+          qualityRank(r.title) === qualityRank(cur.title) &&
+          r.popularity > cur.popularity)
+      ) {
+        best.set(key, r);
+      }
+    }
+    return [...best.values()]
+      .sort((a, b) => b.popularity - a.popularity)
+      .slice(0, 24)
+      .map((r) => ({ ...r, title: cleanSeriesLabel(r.title) }));
   } catch {
     return [];
   }
@@ -75,7 +169,7 @@ export async function searchAction(query: string): Promise<SearchHit[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   // CC0 series first (locally hosted, watchable) — these lead the overlay.
-  const series = await searchCc0SeriesRows(`%${q}%`);
+  const series = await searchCc0SeriesRows(q);
   const seriesHits: SearchHit[] = series.slice(0, 8).map((r) => ({
     kind: "title",
     tmdbId: r.tmdbId,
@@ -192,10 +286,19 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
   const q = query.trim();
   if (q.length < 2) return { collections: [], series: [], titles: [], people: [] };
   const like = `%${q}%`;
+  // Separator-insensitive title match — additive (only broadens): "spider man"
+  // now also matches the stored "Spider-Man". Empty fragment when the query
+  // has <2 alphanumerics so we never widen to a bare "%%".
+  const norm = normLoose(q);
+  const nClause =
+    norm.length >= 2
+      ? sql`OR regexp_replace(lower(title), '[^a-z0-9]', '', 'g') LIKE ${`%${norm}%`}
+            OR regexp_replace(lower(coalesce(original_title, '')), '[^a-z0-9]', '', 'g') LIKE ${`%${norm}%`}`
+      : sql``;
 
   // CC0 TV series we host — surfaced as their own section, separate from
   // movies. Marked watchable so the poster card shows the "Free" badge.
-  const series: TitlePreviewData[] = (await searchCc0SeriesRows(like)).map((r) => ({
+  const series: TitlePreviewData[] = (await searchCc0SeriesRows(q)).map((r) => ({
     ...rowToPreview(r),
     watchable: true,
   }));
@@ -219,6 +322,7 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
           OR collection_name ILIKE ${like}
           OR EXISTS (SELECT 1 FROM unnest(keywords) k WHERE k ILIKE ${like})
           OR EXISTS (SELECT 1 FROM unnest(genres) g WHERE g ILIKE ${like})
+          ${nClause}
         )
       ORDER BY popularity DESC
       LIMIT 60
@@ -240,6 +344,7 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
           OR original_title ILIKE ${like}
           OR EXISTS (SELECT 1 FROM unnest(keywords) k WHERE k ILIKE ${like})
           OR EXISTS (SELECT 1 FROM unnest(genres) g WHERE g ILIKE ${like})
+          ${nClause}
         )
       ORDER BY popularity DESC
       LIMIT 60
