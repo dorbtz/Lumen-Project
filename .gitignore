@@ -78,3 +78,4 @@ SPEC.md
 SPEC_COMPLETION.md
 SPEC_*.md
 scripts/
+tests/
