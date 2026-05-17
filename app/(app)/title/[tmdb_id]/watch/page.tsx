@@ -19,6 +19,7 @@ import { getOrSyncTitle } from "@/lib/tmdb/sync";
 import {
   type EpisodeProgress,
   getCc0Episodes,
+  getCc0SeriesMeta,
   getWatchProgressForTitle,
 } from "@/lib/watch/episodes";
 import Link from "next/link";
@@ -60,10 +61,15 @@ async function WatchSurface({ params, searchParams }: PageProps) {
     redirect("/profiles");
   }
 
-  const title = await getOrSyncTitle(tmdbId);
-  if (!title) notFound();
+  // Re-pointed CC0 series can share a tmdb_id with a movie (tv 888
+  // "Spider-Man" vs movie 888 "The Flintstones"); getOrSyncTitle is
+  // movie-biased, so prefer the CC0 series' own row for the chrome.
+  const seriesMeta = await getCc0SeriesMeta(tmdbId).catch(() => null);
+  const title = seriesMeta ? null : await getOrSyncTitle(tmdbId);
+  if (!title && !seriesMeta) notFound();
 
-  const poster = posterUrl(title.posterPath, "w780");
+  const displayName = seriesMeta?.title ?? title?.title ?? "Watch";
+  const poster = posterUrl(seriesMeta?.posterPath ?? title?.posterPath, "w780");
 
   // CC0 first (themed Mux player); otherwise the YouTube trailer.
   const cc0 = await getCc0ByTmdbId(tmdbId);
@@ -104,7 +110,7 @@ async function WatchSurface({ params, searchParams }: PageProps) {
             className="mt-1 text-2xl md:text-3xl font-[var(--font-display)] tracking-tight"
             style={{ letterSpacing: "-0.025em" }}
           >
-            {title.title}
+            {displayName}
           </h1>
           {activeEpisode && (
             <p className="mt-1 text-sm text-[var(--color-ink-2)]">
@@ -113,7 +119,7 @@ async function WatchSurface({ params, searchParams }: PageProps) {
           )}
         </div>
         <Link
-          href={`/title/${tmdbId}`}
+          href={`/title/${tmdbId}${seriesMeta ? "?type=tv" : ""}`}
           className="shrink-0 text-sm text-[var(--color-ink-2)] hover:text-[var(--color-ink-0)] transition-colors"
         >
           ← Back to detail
@@ -124,7 +130,7 @@ async function WatchSurface({ params, searchParams }: PageProps) {
         <WatchPlayer
           kind="direct"
           src={activeEpisode.streamUrl}
-          title={title.title}
+          title={displayName}
           poster={poster}
           progress={progressCtx}
         />
@@ -132,7 +138,7 @@ async function WatchSurface({ params, searchParams }: PageProps) {
         <WatchPlayer
           kind="direct"
           src={cc0.streamUrl}
-          title={title.title}
+          title={displayName}
           poster={poster}
           progress={progressCtx}
         />
@@ -140,12 +146,12 @@ async function WatchSurface({ params, searchParams }: PageProps) {
         <WatchPlayer
           kind="mux"
           playbackId={cc0.muxPlaybackId}
-          title={title.title}
+          title={displayName}
           poster={poster}
           progress={progressCtx}
         />
       ) : trailerKey ? (
-        <WatchPlayer kind="youtube" youtubeKey={trailerKey} title={title.title} />
+        <WatchPlayer kind="youtube" youtubeKey={trailerKey} title={displayName} />
       ) : (
         <div className="w-full aspect-video rounded-2xl ring-1 ring-white/10 bg-black/40 flex items-center justify-center text-center px-6">
           <p className="text-sm text-[var(--color-ink-2)] max-w-prose">

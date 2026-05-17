@@ -115,7 +115,7 @@ export function Cc0SeasonsBrowser({
           return (
             <Link
               key={e.episodeIndex}
-              href={`/title/${tmdbId}/watch?ep=${e.episodeIndex}`}
+              href={`/title/${tmdbId}/watch?ep=${e.episodeIndex}${tmdbId > 0 ? "&type=tv" : ""}`}
               aria-label={`Play ${name}${completed ? " (watched)" : inProgress ? " (resume)" : ""}`}
               className={`group block rounded-2xl overflow-hidden ring-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${
                 completed

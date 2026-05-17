@@ -34,6 +34,36 @@ export interface EpisodeProgress {
   completed: boolean;
 }
 
+/**
+ * The CC0 *series'* own title/poster row (type='tv' with ready cc0_videos)
+ * — used by the watch page so a re-pointed series whose TMDB id collides
+ * with a movie (e.g. tv 888 "Spider-Man" vs movie 888 "The Flintstones")
+ * shows the SERIES chrome, not the movie's. Null when not a CC0 series.
+ */
+export async function getCc0SeriesMeta(
+  tmdbId: number,
+): Promise<{ title: string; posterPath: string | null; backdropPath: string | null } | null> {
+  try {
+    const rows = await db.execute(sql`
+      SELECT t.title, t.poster_path AS "posterPath", t.backdrop_path AS "backdropPath"
+      FROM titles t
+      WHERE t.tmdb_id = ${tmdbId} AND t.type = 'tv'
+        AND EXISTS (
+          SELECT 1 FROM cc0_videos v WHERE v.title_id = t.id AND v.status = 'ready'
+        )
+      LIMIT 1
+    `);
+    const r = (rows.rows as unknown as Array<{
+      title: string;
+      posterPath: string | null;
+      backdropPath: string | null;
+    }>)[0];
+    return r ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Episodes for a CC0 series, by the title's TMDB id (incl. synthetic ids). */
 export async function getCc0Episodes(tmdbId: number): Promise<Cc0EpisodeVM[]> {
   try {
