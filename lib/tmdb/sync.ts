@@ -20,6 +20,28 @@ function isStale(t: Title): boolean {
 }
 
 /**
+ * The persisted TV-series row for a tmdb_id (type='tv'), no network/sync.
+ * Used by the ?type=tv title path so a re-pointed/standalone CC0 series
+ * keeps its real internal id → Watchlist / Why / Journal / More-like-this
+ * light up (same gating as movies). Returns null for browse-only TMDB TV
+ * (no DB row).
+ */
+export async function getTvTitleRow(tmdbId: number): Promise<Title | null> {
+  const rows = await db.execute(sql`
+    SELECT id, tmdb_id AS "tmdbId", type, title, original_title AS "originalTitle",
+           release_year AS "releaseYear", runtime_min AS "runtimeMin", overview, tagline,
+           poster_path AS "posterPath", backdrop_path AS "backdropPath",
+           vibrant_palette AS "vibrantPalette", imdb_id AS "imdbId",
+           popularity, vote_average AS "voteAverage", vote_count AS "voteCount",
+           keywords, genres,
+           NULL::vector AS "moodVector", NULL::vector AS "embedding",
+           created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM titles WHERE tmdb_id = ${tmdbId} AND type = 'tv' LIMIT 1
+  `);
+  return (rows.rows as unknown as Title[])[0] ?? null;
+}
+
+/**
  * Return a fully-hydrated title row, fetching from TMDB and upserting if
  * missing or stale. Idempotent.
  */

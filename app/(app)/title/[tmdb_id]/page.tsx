@@ -25,7 +25,7 @@ import type { Title } from "@/lib/db/schema";
 import { backdropUrl as backdropSrc, posterUrl as posterSrc } from "@/lib/img/poster";
 import { getCc0ByTmdbId } from "@/lib/mux/client";
 import { type TmdbCastMember, type TmdbCrewMember, tmdb } from "@/lib/tmdb/client";
-import { getOrSyncTitle } from "@/lib/tmdb/sync";
+import { getOrSyncTitle, getTvTitleRow } from "@/lib/tmdb/sync";
 import { getCc0Episodes, getWatchProgressForTitle } from "@/lib/watch/episodes";
 import { isInWatchlist } from "@/lib/watchlist/service";
 import Image from "next/image";
@@ -72,9 +72,10 @@ async function TitleDetail({ params, searchParams }: PageProps) {
   // Hit TMDB up front so we have videos/credits even if our DB row was pre-seeded
   // without them. Local DB row provides the palette + internal UUID.
   const [row, fresh, activeProfileId] = await Promise.all([
-    // Skip the movie-only sync entirely for a tv-hinted id — otherwise
-    // getOrSyncTitle would fetch + persist the colliding movie.
-    wantTv ? Promise.resolve(null) : getOrSyncTitle(tmdbId),
+    // tv-hinted: use the persisted tv row (CC0-backed series have one →
+    // unlocks Watchlist/Why/Journal/More-like-this). Never the movie-only
+    // sync, which would fetch+persist the colliding movie.
+    wantTv ? getTvTitleRow(tmdbId) : getOrSyncTitle(tmdbId),
     wantTv ? Promise.resolve(null) : tmdb.movie(tmdbId).catch(() => null),
     getActiveProfileId(),
   ]);
@@ -98,7 +99,7 @@ async function TitleDetail({ params, searchParams }: PageProps) {
   const freshLike = fresh ?? (liveTv ? tvToMovieShape(liveTv) : null);
   const t: TitleViewModel = projectTitle(row, freshLike);
 
-  const trailer = tmdb.pickTrailer(fresh?.videos?.results);
+  const trailer = tmdb.pickTrailer(freshLike?.videos?.results);
   const cc0 = await getCc0ByTmdbId(tmdbId).catch(() => null);
   const cc0Available = Boolean(cc0);
 
@@ -143,8 +144,8 @@ async function TitleDetail({ params, searchParams }: PageProps) {
       }));
     }
   }
-  const cast = (fresh?.credits?.cast ?? []).slice(0, 12);
-  const crew = extractHeadlineCrew(fresh?.credits?.crew ?? []);
+  const cast = (freshLike?.credits?.cast ?? []).slice(0, 12);
+  const crew = extractHeadlineCrew(freshLike?.credits?.crew ?? []);
 
   // More-Like-This: pgvector if we have an embedding + internal id, else genre fallback.
   let similar: Title[] = [];
@@ -443,6 +444,10 @@ function tvToMovieShape(
     backdrop_path: (tv as { backdrop_path?: string | null }).backdrop_path ?? null,
     vote_average: tv.vote_average,
     genres: tv.genres ?? [],
+    // tmdb.tv() now appends credits+videos → power the Cast/crew strip
+    // and the hero trailer for TV, same as movies.
+    credits: (tv as { credits?: unknown }).credits ?? undefined,
+    videos: (tv as { videos?: unknown }).videos ?? undefined,
   } as unknown as Awaited<ReturnType<typeof tmdb.movie>>;
 }
 

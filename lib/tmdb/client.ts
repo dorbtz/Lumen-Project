@@ -348,7 +348,7 @@ export const tmdb = {
   tv: (id: number) =>
     tmdbFetch<TmdbTvDetail>(
       `/tv/${id}`,
-      { append_to_response: "keywords,external_ids", language: "en-US" },
+      { append_to_response: "credits,videos,keywords,external_ids", language: "en-US" },
       `tv:${id}`,
     ),
 
