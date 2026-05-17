@@ -70,15 +70,25 @@ async function TitleDetail({ params }: PageProps) {
     getActiveProfileId(),
   ]);
 
+  // No DB row and not a TMDB *movie* → it may be a TMDB *series*. Render it
+  // live from TMDB (no DB write: titles.tmdb_id is unique to movie ids, so
+  // persisting a tv id could collide with a movie). CC0 series keep their
+  // own negative-id rows and are unaffected.
+  let liveTv: Awaited<ReturnType<typeof tmdb.tv>> | null = null;
+  if (!row && !fresh && tmdbId > 0) {
+    liveTv = await tmdb.tv(tmdbId).catch(() => null);
+  }
+
+  if (!row && !fresh && !liveTv) notFound();
+
   // Watchlist state — only needed when both the DB row and active profile exist.
   const inWatchlist =
     row?.id && activeProfileId
       ? await isInWatchlist(activeProfileId, row.id).catch(() => false)
       : false;
 
-  if (!row && !fresh) notFound();
-
-  const t: TitleViewModel = projectTitle(row, fresh);
+  const freshLike = fresh ?? (liveTv ? tvToMovieShape(liveTv) : null);
+  const t: TitleViewModel = projectTitle(row, freshLike);
 
   const trailer = tmdb.pickTrailer(fresh?.videos?.results);
   const cc0 = await getCc0ByTmdbId(tmdbId).catch(() => null);
@@ -115,10 +125,10 @@ async function TitleDetail({ params }: PageProps) {
 
   // TV titles → fetch the season list for the Prime-style browser. Movies
   // skip this entirely (zero overhead, unchanged path).
-  const isTv = row?.type === "tv" && tmdbId > 0;
+  const isTv = (row?.type === "tv" || Boolean(liveTv)) && tmdbId > 0;
   let tvSeasons: SeasonSummaryVM[] = [];
   if (isTv) {
-    const tv = await tmdb.tv(tmdbId).catch(() => null);
+    const tv = liveTv ?? (await tmdb.tv(tmdbId).catch(() => null));
     tvSeasons = (tv?.seasons ?? [])
       .filter((s) => s.episode_count > 0)
       .map((s) => ({
@@ -375,6 +385,28 @@ interface TitleViewModel {
   voteAverageText: string | null;
   genres: string[];
   dominantColor: string | null;
+}
+
+/**
+ * Adapt a live TMDB *series* into the movie-shaped object `projectTitle`
+ * reads, so a non-CC0 TV show renders without a DB row or schema change.
+ * Only the fields projectTitle consumes are needed.
+ */
+function tvToMovieShape(
+  tv: Awaited<ReturnType<typeof tmdb.tv>>,
+): Awaited<ReturnType<typeof tmdb.movie>> {
+  return {
+    title: tv.name,
+    original_title: tv.original_name ?? tv.name,
+    release_date: tv.first_air_date,
+    runtime: tv.episode_run_time?.[0] ?? null,
+    overview: tv.overview,
+    tagline: null,
+    poster_path: tv.poster_path,
+    backdrop_path: (tv as { backdrop_path?: string | null }).backdrop_path ?? null,
+    vote_average: tv.vote_average,
+    genres: tv.genres ?? [],
+  } as unknown as Awaited<ReturnType<typeof tmdb.movie>>;
 }
 
 function projectTitle(

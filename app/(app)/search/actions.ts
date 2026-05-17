@@ -242,6 +242,20 @@ export async function searchAction(query: string): Promise<SearchHit[]> {
           overview: r.overview ?? null,
           voteAverage: r.vote_average ?? null,
         });
+      } else if (r.media_type === "tv" && r.poster_path) {
+        // Non-CC0 TMDB series — browsable (rendered live on the title
+        // page), not watch-free. Poster required (ghost rule).
+        hits.push({
+          kind: "title",
+          tmdbId: r.id,
+          title: r.name,
+          posterPath: r.poster_path,
+          year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+          overview: r.overview ?? null,
+          voteAverage: r.vote_average ?? null,
+          media: "tv",
+          watchable: false,
+        });
       } else if (r.media_type === "person") {
         hits.push({
           kind: "person",
@@ -252,7 +266,6 @@ export async function searchAction(query: string): Promise<SearchHit[]> {
           popularity: r.popularity ?? null,
         });
       }
-      // We skip tv for now — Lumen MVP is movies-only per SPEC.
     }
     // Sort by popularity-ish heuristic: movies with poster ahead, then people.
     hits.sort((a, b) => {
@@ -473,6 +486,21 @@ export async function searchCatalog(query: string): Promise<SearchCatalogResult>
           voteAverage: r.vote_average ? Math.round(r.vote_average * 10) : null,
           overview: r.overview ?? null,
           genres: null,
+        });
+      } else if (r.media_type === "tv" && r.poster_path && !seen.has(r.id)) {
+        // Non-CC0 TMDB series → appended to the TV-series section after the
+        // CC0 (watch-free) ones; browsable via the live TV title page.
+        seen.add(r.id);
+        series.push({
+          tmdbId: r.id,
+          title: r.name,
+          posterPath: r.poster_path,
+          backdropPath: (r as { backdrop_path?: string | null }).backdrop_path ?? null,
+          releaseYear: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+          voteAverage: r.vote_average ? Math.round(r.vote_average * 10) : null,
+          overview: r.overview ?? null,
+          genres: null,
+          watchable: false,
         });
       } else if (r.media_type === "person") {
         people.push({
