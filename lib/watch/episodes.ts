@@ -9,6 +9,11 @@
 
 import { db } from "@/lib/db/client";
 import { sql } from "drizzle-orm";
+import { parseSeasonEp } from "./episode-format";
+
+// Re-export so existing server-side importers keep working; client
+// components must import from "./episode-format" directly (no db).
+export { cleanEpisodeName } from "./episode-format";
 
 export interface Cc0EpisodeVM {
   episodeIndex: number;
@@ -22,22 +27,6 @@ export interface Cc0EpisodeVM {
   stillPath: string | null;
 }
 
-/** "Episode 14 — 02x01 The Insidious Six" → {season:2, ep:1}. */
-function parseSeasonEp(label: string): { season: number | null; ep: number | null } {
-  const m = label.match(/\b(\d{1,2})\s*x\s*(\d{1,3})\b/i);
-  if (!m) return { season: null, ep: null };
-  return { season: Number(m[1]), ep: Number(m[2]) };
-}
-
-/** Display name: drop the "Episode N — " and "NNxNN" prefixes. */
-export function cleanEpisodeName(label: string): string {
-  return (
-    label
-      .replace(/^\s*episode\s+\d+\s*[—–-]\s*/i, "")
-      .replace(/^\s*\d{1,2}\s*x\s*\d{1,3}\s*[-—–:.]?\s*/i, "")
-      .trim() || label
-  );
-}
 
 export interface EpisodeProgress {
   positionSec: number;

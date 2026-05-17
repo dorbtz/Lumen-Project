@@ -11,7 +11,8 @@
  * as one ungrouped grid. TMDB episode stills are shown when available.
  */
 
-import { type Cc0EpisodeVM, cleanEpisodeName, type EpisodeProgress } from "@/lib/watch/episodes";
+import type { Cc0EpisodeVM, EpisodeProgress } from "@/lib/watch/episodes";
+import { cleanEpisodeName } from "@/lib/watch/episode-format";
 import Link from "next/link";
 import Image from "next/image";
 import { useMemo, useState } from "react";
